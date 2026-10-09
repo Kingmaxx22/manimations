@@ -1,0 +1,35 @@
+# Manimations project brief.
+#
+# Each scene maps to a class in scenes.py.  Keep narration concise: the
+# animation reinforces it, it does not repeat it.  Aim for 105-185 words per
+# minute of declared duration.
+
+title: "Your Topic Here"
+slug: starter
+description: ""
+narration_voice: alba          # any pocket-tts voice name or a path to a wav
+subtitle_lang: en
+# music: assets/music_bed.mp3  # optional background bed (looped, mixed low)
+
+scenes:
+  - id: 01_intro
+    class: SceneIntro
+    accent: cyan
+    duration: 12
+    narration: "Start by naming the topic and saying why it matters, in a couple of sentences that set up the question this video will answer."
+    visuals: [title-card]
+    notes: "Title card with the topic name; no diagram yet."
+  - id: 02_concept
+    class: SceneConcept
+    accent: violet
+    duration: 12
+    narration: "Explain the core idea here, building the diagram element by element as the narration walks through what each part represents and how it connects."
+    visuals: [diagram]
+    notes: "Reveal the central diagram element by element."
+  - id: 03_conclusion
+    class: SceneConclusion
+    accent: green
+    duration: 11
+    narration: "Close with the single takeaway you want the viewer to remember, stated plainly and supported by the diagram that is still on screen."
+    visuals: [summary]
+    notes: "Three short takeaways, then settle."

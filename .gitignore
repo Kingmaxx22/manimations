@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+venv/
+
+# Manim / pipeline output
+media/
+projects/*/build/
+projects/*/media/
+*.pyc
+
+# QA artefacts that are cheap to regenerate
+**/_qa_frames/

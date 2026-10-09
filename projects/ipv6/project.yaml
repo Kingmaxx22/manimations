@@ -1,0 +1,78 @@
+# Manimations project brief — "What Is IPv6, and Why Is Adoption So Slow?"
+#
+# Narration is deliberately factual: no invented statistics, and no claim that
+# IPv6 is inherently faster or more secure.  Each scene's declared duration is
+# matched to its narration pace (105-185 wpm).
+
+title: "What Is IPv6, and Why Is Adoption So Slow?"
+slug: ipv6
+description: "A short explainer on address exhaustion and the slow move to IPv6"
+author: "Manimations"
+narration_voice: alba
+subtitle_lang: en
+# music: assets/music_bed.mp3   # optional: looped and mixed low under narration
+
+scenes:
+  - id: 00_cold_open
+    class: SceneColdOpen
+    accent: cyan
+    duration: 5
+    narration: ""
+    visuals: [title-card, address-badges]
+    notes: "Silent title card; the two address families resolve side by side."
+
+  - id: 01_scarcity
+    class: SceneScarcity
+    accent: amber
+    duration: 18
+    narration: "Every device on the internet needs an address. IPv4 provides about four point three billion of them. That number was chosen in the nineteen seventies, long before smartphones, laptops and data centres existed. Today, those addresses are effectively all allocated."
+    visuals: [counter, meter, exhausted-badge]
+    notes: "Count up to 4.29 billion, fill the pool, stamp it exhausted."
+
+  - id: 02_what_address_means
+    class: SceneAddressMeaning
+    accent: cyan
+    duration: 18
+    narration: "An IP address is not a name. It is a location. It tells the network where a packet should go, so routers can forward it hop by hop toward its destination. Move the device, and its address moves with it."
+    visuals: [topology, travelling-packet, address-badge]
+    notes: "Packet travels host -> router -> host, then the device relocates and its address changes."
+
+  - id: 03_bit_width
+    class: SceneBitWidth
+    accent: violet
+    duration: 20
+    narration: "An IPv4 address is thirty-two bits, written as four decimal numbers. An IPv6 address is one hundred and twenty-eight bits, written as eight groups of four hexadecimal digits. Four times the width is an almost unimaginably larger address space."
+    visuals: [address-block, bit-grid, stat]
+    notes: "Two columns: 32-bit dotted quad vs 128-bit hextets, with bit grids and a size comparison."
+
+  - id: 04_prefix_and_connectivity
+    class: ScenePrefixAndConnectivity
+    accent: green
+    duration: 22
+    narration: "IPv6 addresses arrive in blocks. A typical home or office is given a slash sixty-four prefix. That one allocation holds more addresses than the entire IPv4 internet. Devices inside it configure their own addresses, and routers forward traffic using the first sixty-four bits as the network."
+    visuals: [address-block, bracket, topology, stat]
+    notes: "Split the address at bit 64: network prefix vs interface identifier; show a router handing out the /64."
+
+  - id: 05_slow_adoption
+    class: SceneSlowAdoption
+    accent: rose
+    duration: 24
+    narration: "IPv6 has existed since the late nineteen nineties, yet adoption is gradual. Legacy hardware and software only understand IPv4. Networks must be upgraded, configured and staffed before anything changes. And migration carries real cost, with little visible benefit to the user on any given day."
+    visuals: [cards, timeline]
+    notes: "Four factor cards revealed one at a time, anchored by a short timeline."
+
+  - id: 06_dual_stack
+    class: SceneDualStack
+    accent: blue
+    duration: 20
+    narration: "The usual answer is dual stack. A device runs IPv4 and IPv6 at the same time, on the same interface. When both ends support IPv6, traffic uses it. Otherwise, it quietly falls back to IPv4. Nothing breaks while the world migrates."
+    visuals: [topology, two-paths, fallback]
+    notes: "One device with two addresses and two routes to a server; a packet prefers IPv6, then falls back."
+
+  - id: 07_conclusion
+    class: SceneConclusion
+    accent: cyan
+    duration: 16
+    narration: "IPv6 is not faster or more secure by itself. It solves one specific problem: address exhaustion. The transition is slow because the internet cannot pause. It has to keep running while its foundations are replaced."
+    visuals: [summary]
+    notes: "Three takeaway lines, then settle on the last one."
