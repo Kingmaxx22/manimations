@@ -176,7 +176,7 @@ from manim import DOWN, LEFT, RIGHT, UP, FadeIn, FadeOut, VGroup
 
 from manimations import ExplainerScene
 from manimations.components import data, network, surfaces, typography
-from manimations.helpers import timing
+from manimations.helpers import layout, timing
 
 
 {scenes}
@@ -198,10 +198,24 @@ class SceneColdOpen(ExplainerScene):
 '''
 
 
+def _short_title(spec: SceneSpec) -> str:
+    """A header-sized title for a scaffolded scene.
+
+    ``notes`` is a full sentence and would overflow the header, so use the first
+    clause of it, capped in length; otherwise derive from the scene id.
+    """
+    source = spec.notes.split(".")[0].strip() if spec.notes else ""
+    if not source:
+        source = spec.id.split("_", 1)[-1].replace("_", " ").title()
+    if len(source) > 38:
+        source = source[:37].rstrip() + "…"
+    return source
+
+
 def _scene_stub(spec: SceneSpec, *, eyebrow: str = "") -> str:
     """Generate one runnable scene class from a brief entry."""
     accent = spec.accent
-    title = spec.notes or spec.id.split("_", 1)[-1].replace("_", " ").title()
+    title = _short_title(spec)
     visuals = ", ".join(spec.visuals) or "diagram"
     return f'''\
 class {spec.cls}(ExplainerScene):
@@ -216,9 +230,10 @@ class {spec.cls}(ExplainerScene):
         self.add_header({title!r}, accent=t.{accent}, index="{spec.id.split('_',1)[0]}")
 
         # TODO: replace with the real visual explanation for this scene.
+        # Sized from the safe area so the placeholder never clips.
         placeholder = surfaces.card(
             {title!r}, {visuals!r},
-            accent=t.{accent}, width=8.0,
+            accent=t.{accent}, width=min(8.0, layout.safe_width()),
         )
         placeholder.move_to([0, 0.0, 0])
         self.register_content(placeholder)

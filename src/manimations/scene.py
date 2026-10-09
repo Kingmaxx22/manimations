@@ -168,7 +168,11 @@ class ExplainerScene(Scene):
         """Draw the persistent scene header: accent bar + section title."""
         accent = accent or self.theme.accent
         header = typography.scene_header(title, accent=accent, index=index)
-        left = -layout.safe_width() / 2
+        max_w = layout.safe_width()
+        # Safety net: a long title must never run off the frame.
+        if header.width > max_w:
+            header.scale(max_w / header.width)
+        left = -max_w / 2
         header.move_to([left + header.width / 2, self.theme.spacing.header_y, 0])
         self._header = header
         self.play(FadeIn(header, shift=DOWN * 0.2), run_time=self.theme.motion.base)

@@ -254,31 +254,78 @@ manimations demo [--quality l|m|h]
 
 ## Making a new explainer
 
+There are two ways to bring a new video idea in, both starting from the same
+brief format.
+
+### Option A — you have a topic, the tool writes the brief
+
 ```bash
-# 1. scaffold from a topic (creates project.yaml + runnable scene stubs)
 uv run manimations new dns --topic "How DNS Resolution Works"
-
-# 2. edit projects/dns/project.yaml  (narration, durations, accents)
-#    edit projects/dns/scenes.py     (the visual explanations)
-
-# 3. iterate on previews
-uv run manimations preview dns
-#    review projects/dns/build/qa/*_sheet.png
-
-# 4. render the final video
-uv run manimations final dns --voiceover --subtitles
 ```
 
-`manimations new` generates a **working** project: every scene stub is a real,
-renderable `ExplainerScene` subclass built from the component library, with the
-narration and intended visuals embedded as class attributes. You replace the
-placeholder body with the real diagram — the pipeline, theme and CLI already work.
+This creates `projects/dns/project.yaml` with a sensible 3-scene skeleton
+(intro / concept / conclusion) and a `scenes.py` full of runnable stubs. Edit
+the narration and durations in the YAML, then replace the stub bodies.
 
-To scaffold from a hand-written brief instead:
+### Option B — you have written the brief yourself
+
+Write a YAML file (copy `examples/dns_brief.yaml` as a starting point) and
+scaffold from it:
 
 ```bash
-uv run manimations new dns --brief my_brief.yaml --dir projects/dns
+uv run manimations new dns --brief examples/dns_brief.yaml --dir projects/dns
 ```
+
+This is the one to use when you already know the scene list — it turns each
+brief entry into a named, renderable scene class.
+
+### The brief format
+
+```yaml
+title: "How DNS Turns Names Into Addresses"
+slug: dns
+description: "A short explainer on the Domain Name System"
+narration_voice: alba          # any pocket-tts voice name, or a path to a wav
+subtitle_lang: en
+# music: assets/music_bed.mp3  # optional bed, looped and mixed low
+
+scenes:
+  - id: 01_problem               # must be NN_name (two digits, lowercase)
+    class: SceneProblem          # the class name in scenes.py
+    accent: amber                # cyan|violet|amber|green|rose|blue|slate
+    duration: 15                 # approximate seconds (matches the narration)
+    narration: "You type a name ... the network only understands addresses."
+    visuals: [name-badge, address-badge, arrow]   # notes to yourself
+    notes: "Show a human name resolving into an IP address."
+```
+
+Rules that validation enforces:
+
+- `id` matches `NN_name`; scenes must be in numeric order; ids unique
+- `class` must exist in `scenes.py` (checked by parsing the file)
+- `accent` must be one of the seven palette names
+- narration pace must land in **105–185 wpm** for the declared duration — if it
+  doesn't, validation tells you the suggested duration
+
+### Then iterate
+
+```bash
+uv run manimations validate dns                 # check the brief + environment
+uv run manimations preview  dns                 # 480p render + QA + contact sheets
+#   review projects/dns/build/qa/*_sheet.png
+uv run manimations final    dns --voiceover --subtitles
+```
+
+`new` generates a **working** project: every scene stub is a real,
+renderable `ExplainerScene` subclass with the narration and intended visuals
+embedded as class attributes, so `preview` succeeds immediately and you replace
+the placeholder body with the real diagram. The `_template` project
+(`projects/_template/`) is a ready-made copy of that output if you'd rather
+start by copying a directory than by running the command.
+
+To hand the brief to the tool without keeping the YAML around, note that
+`--brief` reads and scaffolds in one step; the generated `project.yaml` is then
+the source of truth.
 
 ---
 

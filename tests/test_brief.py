@@ -37,6 +37,32 @@ def test_scaffold_creates_runnable_project(tmp_path):
     assert proj.validate() == []
 
 
+def test_scaffold_header_titles_are_short(tmp_path):
+    """Generated headers must fit the frame: a long note becomes a short title."""
+    from manimations.brief import _short_title
+    from manimations.config import SceneSpec
+
+    spec = SceneSpec(
+        id="01_x", cls="S",
+        notes="Build the resolution tree from the root downward, one level at a time.",
+    )
+    title = _short_title(spec)
+    assert len(title) <= 38
+    assert "." not in title  # first clause only
+    # falls back to the scene id when there are no notes
+    assert _short_title(SceneSpec(id="02_hierarchy", cls="S")) == "Hierarchy"
+
+
+def test_scaffolded_scenes_import_layout(tmp_path):
+    """The placeholder card is sized from layout.safe_width(), so the import
+    must be present or every generated scene raises NameError."""
+    brief = Brief.from_dict({"title": "T", "slug": "t"})
+    root = scaffold_project(tmp_path / "t", brief)
+    source = (root / "scenes.py").read_text(encoding="utf-8")
+    assert "from manimations.helpers import layout, timing" in source
+    assert "layout.safe_width()" in source
+
+
 def test_scaffold_refuses_overwrite(tmp_path):
     brief = Brief.from_dict({"title": "T", "slug": "t"})
     root = scaffold_project(tmp_path / "t", brief)
