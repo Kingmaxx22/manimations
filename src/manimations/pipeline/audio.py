@@ -253,6 +253,76 @@ def concat_audio(parts: list[Path], dst: Path) -> Path | None:
     return dst if proc.returncode == 0 and dst.exists() else None
 
 
+def fit_scene_durations(
+    project: ProjectConfig,
+    clips: list[NarrationClip],
+    *,
+    tail: float = 0.6,
+    min_duration: float = 3.0,
+    write: bool = True,
+) -> list[tuple[str, float, float]]:
+    """Set each scene's duration to its real narration length plus a short tail.
+
+    This is what removes the long silent pauses: a declared ``duration`` is only
+    a guess, and if it is longer than the speech the scene holds a frozen frame
+    after the voice stops.  Measuring the generated audio and fitting the scene
+    to it keeps the pacing tight.
+
+    ``tail`` is the small pause after the last word so a scene does not cut off
+    abruptly.  Scenes whose animation is longer than the narration keep their
+    declared duration (the visuals need the time).
+
+    Returns a list of ``(scene_id, old_duration, new_duration)`` for the scenes
+    that changed, and (when ``write``) persists the new durations to the brief's
+    ``project.yaml`` so the change survives re-renders.
+    """
+    changes: list[tuple[str, float, float]] = []
+    by_id = {c.scene_id: c for c in clips}
+
+    for spec in project.scenes:
+        clip = by_id.get(spec.id)
+        if clip is None or not clip.ok or clip.duration <= 0:
+            continue  # silent scene (e.g. a title card): leave it alone
+        target = round(max(min_duration, clip.duration + tail), 1)
+        if abs(target - spec.duration) >= 0.1:
+            changes.append((spec.id, spec.duration, target))
+            spec.duration = target
+
+    if changes and write:
+        _persist_durations(project)
+    return changes
+
+
+def _persist_durations(project: ProjectConfig) -> None:
+    """Write the (possibly updated) scene durations back to project.yaml.
+
+    Done as a targeted line edit so comments, ordering and formatting in the
+    hand-authored brief survive.
+    """
+    import re
+
+    yaml_path = project.root / "project.yaml"
+    if not yaml_path.exists():
+        return
+    text = yaml_path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    out: list[str] = []
+    current_id: str | None = None
+    durations = {s.id: s.duration for s in project.scenes}
+
+    for line in lines:
+        m = re.match(r"^(\s*)-?\s*id:\s*(\S+)", line)
+        if m:
+            current_id = m.group(2)
+        if current_id and current_id in durations:
+            dm = re.match(r"^(\s*duration:\s*)(\S+)(\s*)$", line.rstrip("\n"))
+            if dm:
+                line = f"{dm.group(1)}{durations[current_id]:g}\n"
+        out.append(line)
+
+    yaml_path.write_text("".join(out), encoding="utf-8")
+
+
 def build_narration_track(project: ProjectConfig, clips: list[NarrationClip],
                           dst: Path | None = None) -> Path | None:
     """Build a single narration track aligned to the scene timeline.

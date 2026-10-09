@@ -119,7 +119,64 @@ def test_layout_fit_width_never_scales_up():
     assert sq.width == pytest.approx(1.0)
 
 
-def test_layout_offending_detects_offscreen():
+def test_safe_margins_scale_with_frame():
+    """Margins are a fraction of the frame, so vertical is not starved."""
+    from manim import config
+    from manimations.theme import LANDSCAPE, VERTICAL, apply_theme
+
+    apply_theme(orientation=LANDSCAPE)
+    land = layout.safe_width()
+    apply_theme(orientation=VERTICAL)
+    vert = layout.safe_width()
+    # vertical is narrower but keeps a similar *proportion* of usable width
+    assert vert < land
+    assert vert / config.frame_width == pytest.approx(land / (16 * 8 / 9), abs=0.02)
+
+
+def test_is_vertical_tracks_orientation():
+    from manimations.theme import LANDSCAPE, VERTICAL, apply_theme
+
+    apply_theme(orientation=LANDSCAPE)
+    assert layout.is_vertical() is False
+    apply_theme(orientation=VERTICAL)
+    assert layout.is_vertical() is True
+
+
+def test_spread_fits_a_row_that_would_overflow():
+    """A row too wide for the frame is shrunk, never left to overflow."""
+    from manim import Square
+    from manimations.theme import VERTICAL, apply_theme
+
+    apply_theme(orientation=VERTICAL)
+    squares = [Square(side_length=1.2) for _ in range(4)]  # 4.8 units total
+    group = layout.spread(squares, gap=0.3)
+    assert group.width <= layout.safe_width() + 0.02
+    assert len(group) == 4
+
+
+def test_pair_keeps_both_inside_safe_area():
+    from manim import Square
+    from manimations.theme import VERTICAL, apply_theme
+
+    apply_theme(orientation=VERTICAL)
+    a, b = Square(side_length=2.0), Square(side_length=2.0)
+    layout.pair(a, b)
+    half = layout.safe_width() / 2
+    assert a.get_left()[0] >= -half - 0.02
+    assert b.get_right()[0] <= half + 0.02
+
+
+def test_stacked_fits_tall_content():
+    from manim import Square
+    from manimations.theme import VERTICAL, apply_theme
+
+    apply_theme(orientation=VERTICAL)
+    squares = [Square(side_length=1.5) for _ in range(6)]  # 9 units tall
+    group = layout.stacked(squares, gap=0.2)
+    assert group.height <= layout.safe_height() + 0.02
+
+
+def test_offending_detects_offscreen():
     from manim import Square
 
     inside = Square(side_length=1.0)

@@ -128,6 +128,15 @@ class ProjectConfig:
     subtitle_lang: str = "en"
     author: str = ""
     description: str = ""
+    #: "landscape" (1920x1080) or "vertical" (1080x1920).
+    orientation: str = "landscape"
+
+    @property
+    def orient(self) -> "Orientation":
+        """The :class:`~manimations.theme.Orientation` for this project."""
+        from .theme import ORIENTATIONS, LANDSCAPE
+
+        return ORIENTATIONS.get(self.orientation, LANDSCAPE)
 
     # --- paths -----------------------------------------------------------
     @property
@@ -181,6 +190,10 @@ class ProjectConfig:
             problems.append("project slug must not be empty")
         if not self.scenes:
             problems.append("project has no scenes")
+        if self.orientation not in ("landscape", "vertical"):
+            problems.append(
+                f"orientation {self.orientation!r} must be 'landscape' or 'vertical'"
+            )
         ids = [s.id for s in self.scenes]
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
@@ -221,4 +234,5 @@ class ProjectConfig:
             subtitle_lang=str(data.get("subtitle_lang", "en")),
             author=str(data.get("author", "")),
             description=str(data.get("description", "")),
+            orientation=str(data.get("orientation", "landscape")).strip().lower(),
         )

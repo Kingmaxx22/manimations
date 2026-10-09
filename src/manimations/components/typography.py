@@ -133,8 +133,16 @@ def scene_header(title: str, *, accent: ManimColor | None = None,
 
 
 def title_card(eyebrow_text: str, title: str, *, accent: ManimColor | None = None,
-               subtitle: str | None = None, max_width: float = 12.0) -> VGroup:
-    """Large centred title block for scene openers and the cold open."""
+               subtitle: str | None = None, max_width: float | None = None) -> VGroup:
+    """Large centred title block for scene openers and the cold open.
+
+    ``max_width`` defaults to the current safe width, so the card fits a narrow
+    vertical frame as well as a wide landscape one.
+    """
+    from ..helpers import layout
+
+    if max_width is None:
+        max_width = layout.safe_width()
     accent = accent or THEME.accent
     parts = VGroup()
     if eyebrow_text:
@@ -149,6 +157,10 @@ def title_card(eyebrow_text: str, title: str, *, accent: ManimColor | None = Non
             s.scale(max_width / s.width)
         parts.add(s)
     parts.arrange(DOWN, buff=0.42, aligned_edge=LEFT)
+    # Final guard: the eyebrow (which has a leading rule) can push the card wider
+    # than any single line, so fit the whole block once it is assembled.
+    if parts.width > max_width:
+        parts.scale(max_width / parts.width)
     return parts
 
 

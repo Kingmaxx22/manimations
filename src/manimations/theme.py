@@ -12,10 +12,15 @@ y in [-3.6, 3.6] after margins.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from functools import lru_cache
 
 from manim import ManimColor, Text, config
+
+#: Environment variable carrying the active orientation name ("landscape" or
+#: "vertical").  Set by the render pipeline so scene files need no project import.
+ORIENTATION_ENV = "MANIMATIONS_ORIENTATION"
 
 # --------------------------------------------------------------------------
 # Palette
@@ -201,32 +206,87 @@ THEME = Theme()
 
 
 # --------------------------------------------------------------------------
-# Render configuration
+# Orientation and render configuration
 # --------------------------------------------------------------------------
 
-#: Exact output contract for every deliverable.
-VIDEO_WIDTH = 1920
-VIDEO_HEIGHT = 1080
-VIDEO_FPS = 30
+
+@dataclass(frozen=True)
+class Orientation:
+    """A video orientation: the output contract for one deliverable."""
+
+    name: str
+    width: int
+    height: int
+    fps: int = 30
+    #: Manim frame height in scene units.  Held at 8 in both orientations so the
+    #: vertical spacing tokens stay valid; the width is derived from the aspect.
+    frame_height: float = 8.0
+
+    @property
+    def aspect(self) -> float:
+        return self.width / self.height
+
+    @property
+    def frame_width(self) -> float:
+        return self.frame_height * self.aspect
+
+    @property
+    def is_vertical(self) -> bool:
+        return self.height > self.width
+
+    @property
+    def safe_width(self) -> float:
+        """Usable scene-unit width inside the default horizontal margins."""
+        return self.frame_width - 2 * 0.85
+
+
+#: Landscape 16:9 — the default for YouTube-style explainers.
+LANDSCAPE = Orientation("landscape", 1920, 1080, 30)
+#: Vertical 9:16 — TikTok / Reels / Shorts.
+VERTICAL = Orientation("vertical", 1080, 1920, 30)
+
+ORIENTATIONS: dict[str, Orientation] = {
+    "landscape": LANDSCAPE,
+    "vertical": VERTICAL,
+}
+
+#: Backwards-compatible aliases for the landscape contract.
+VIDEO_WIDTH = LANDSCAPE.width
+VIDEO_HEIGHT = LANDSCAPE.height
+VIDEO_FPS = LANDSCAPE.fps
 
 #: Manim quality shorthand used by the pipeline.
-PREVIEW_QUALITY = "l"  # 854x480 @ 15fps
-FINAL_QUALITY = "h"  # 1920x1080 @ 60fps -> we override fps below
+PREVIEW_QUALITY = "l"  # low-res, 15fps
+FINAL_QUALITY = "h"  # 1080p-class, fps overridden explicitly
 
 
-def apply_theme(background: ManimColor | None = None) -> Theme:
+def _active_orientation() -> Orientation:
+    """The orientation the current render is using (set by the pipeline)."""
+    name = os.environ.get(ORIENTATION_ENV, "landscape").strip().lower()
+    return ORIENTATIONS.get(name, LANDSCAPE)
+
+
+def apply_theme(background: ManimColor | None = None,
+                orientation: Orientation | None = None) -> Theme:
     """Force Manim's global config to the Manimations design language.
 
     Called automatically by :class:`manimations.scene.ExplainerScene`.  Safe to
     call repeatedly.
 
+    The orientation (landscape 16:9 or vertical 9:16) is taken from the
+    ``MANIMATIONS_ORIENTATION`` environment variable when the pipeline sets it,
+    so a scene file needs no project import to render correctly in either format.
+
     Important: this deliberately does **not** set ``pixel_width`` /
     ``pixel_height`` / ``frame_rate``.  Resolution and frame rate are owned by
-    the render quality flags (``-q l`` for previews, ``-r 1920,1080 --fps 30``
-    for finals) so that previews stay fast.  Only the background colour and the
-    16:9 aspect ratio are forced here, and ``frame_height`` is left at Manim's
-    default of 8 units so the spacing tokens in :class:`Spacing` remain valid.
+    the render quality flags (``-q l`` for previews, ``-r W,H --fps N`` for
+    finals) so that previews stay fast.  Only the background colour and the
+    frame aspect ratio are forced here.
     """
+    orient = orientation or _active_orientation()
     config.background_color = background or THEME.bg
-    config.frame_width = 16 * (config.frame_height / 9)  # keep 16:9 exact
+    # Frame height stays 8 units in both orientations; the width follows the
+    # aspect ratio.  Vertical is therefore simply a narrower frame.
+    config.frame_height = orient.frame_height
+    config.frame_width = orient.frame_width
     return THEME

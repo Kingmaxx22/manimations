@@ -27,15 +27,32 @@ from pathlib import Path
 
 from ..config import ProjectConfig, SceneSpec
 from ..scene import SPEC_ENV
+from ..theme import ORIENTATION_ENV
 from .cache import RenderCache
 from .errors import FailureKind, RenderError, RepairLog, classify
 from . import probe
 
-#: Quality presets -> (manim -q flag, resolution, fps)
-QUALITY_PREVIEW = ("l", 854, 480, 15)
-QUALITY_FINAL = ("h", 1920, 1080, 30)
+#: Quality presets.  The final resolution comes from the project's orientation;
+#: previews are scaled down from it, keeping the aspect ratio.
+PREVIEW_SHORT_SIDE = 480  # px on the short side for preview renders
+PREVIEW_FPS = 15
+FINAL_FPS = 30
 
 MAX_REPAIR_ATTEMPTS = 3
+
+
+def preview_resolution(orient) -> tuple[int, int]:
+    """A small preview resolution matching the project's aspect ratio.
+
+    Dimensions are forced even: H.264 requires it for chroma subsampling.
+    """
+    short = PREVIEW_SHORT_SIDE
+    long_side = round(short * orient.aspect)
+    if long_side % 2:
+        long_side += 1
+    if orient.is_vertical:
+        return long_side, short  # 9:16 -> 270x480
+    return long_side, short  # 16:9 -> 854x480
 
 
 @dataclass
@@ -73,10 +90,16 @@ def render_scene(
     log_dir = Path(log_dir or project.qa_dir / "logs")
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    orient = project.orient
     if quality == "l":
-        qflag, w, h, fps = QUALITY_PREVIEW
+        w, h = preview_resolution(orient)
+        fps = PREVIEW_FPS
     else:
-        qflag, w, h, fps = QUALITY_FINAL
+        w, h = orient.width, orient.height
+        fps = orient.fps or FINAL_FPS
+    # Manim's quality flag only sets a resolution/fps preset; we always pass an
+    # explicit -r and --fps, so use the "low" preset as a base in both cases.
+    qflag = "l"
 
     out_dir = project.final_dir if quality != "l" else project.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -114,12 +137,13 @@ def render_scene(
     ]
 
     last_error: RenderError | None = None
-    # Tell the scene its declared duration so it can pad its runtime to match the
-    # narration (keeps voice and visuals in sync in the assembled video).
+    # Tell the scene its declared duration and the frame orientation, so it can
+    # pad to match the narration and lay out correctly for the aspect ratio.
     env = dict(os.environ)
     env[SPEC_ENV] = json.dumps(
         {"id": spec.id, "duration": spec.duration, "accent": spec.accent}
     )
+    env[ORIENTATION_ENV] = project.orientation
     for attempt in range(1, max_attempts + 1):
         t0 = time.time()
         try:

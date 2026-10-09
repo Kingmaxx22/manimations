@@ -65,7 +65,7 @@ def concat_scenes(
             "ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
             "-i", str(listing),
             "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-            "-pix_fmt", "yuv420p", "-r", "30", "-an",
+            "-pix_fmt", "yuv420p", "-r", str(project.orient.fps), "-an",
             str(dst),
         ]
     else:

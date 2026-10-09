@@ -182,7 +182,7 @@ class ExplainerScene(Scene):
         """Draw the persistent footer caption (chapter label / source note)."""
         accent = accent or self.theme.text_muted
         footer = typography.footer_note(text, color=accent)
-        footer.to_edge(DOWN, buff=self.theme.spacing.margin_y - 0.2)
+        footer.to_edge(DOWN, buff=max(0.15, layout.margin_y() - 0.1))
         self._footer = footer
         self.play(FadeIn(footer), run_time=self.theme.motion.quick)
         return footer

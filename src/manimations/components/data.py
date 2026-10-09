@@ -32,7 +32,8 @@ from . import surfaces, typography
 # --------------------------------------------------------------------------
 def counter(value: float = 0.0, *, label: str | None = None, unit: str | None = None,
             accent: ManimColor | None = None, size: int | None = None,
-            decimals: int = 0, compact: bool = False) -> VGroup:
+            decimals: int = 0, compact: bool = False,
+            max_width: float | None = None) -> VGroup:
     """An animated number with an optional label and unit.
 
     Returns a ``VGroup`` whose index 0 is the live number; the ``ValueTracker``
@@ -43,6 +44,7 @@ def counter(value: float = 0.0, *, label: str | None = None, unit: str | None = 
     """
     accent = accent or THEME.accent
     tracker = ValueTracker(value)
+    max_w = max_width if max_width is not None else layout.safe_width()
 
     def _render() -> VGroup:
         n = DecimalNumber(
@@ -56,6 +58,10 @@ def counter(value: float = 0.0, *, label: str | None = None, unit: str | None = 
             row.add(typography.label(unit, size=THEME.sizes.subheading,
                                      color=THEME.text_secondary))
         row.arrange(RIGHT, buff=0.18, aligned_edge=DOWN)
+        # A counter grows as digits are added (0 -> 4,294,967,296 is 10x wider),
+        # so fit it on every redraw or the final value overflows the frame.
+        if row.width > max_w:
+            row.scale(max_w / row.width)
         return row
 
     number = _render()

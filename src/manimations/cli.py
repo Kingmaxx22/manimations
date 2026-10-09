@@ -26,6 +26,7 @@ from pathlib import Path
 
 from .config import ConfigError, ProjectConfig
 from .pipeline import assembler, audio, probe, qa, renderer, validator
+from .pipeline.cache import RenderCache
 
 PROJECTS_DIR = Path("projects")
 
@@ -58,8 +59,12 @@ def hdr(text: str) -> str:
 # --------------------------------------------------------------------------
 # project resolution
 # --------------------------------------------------------------------------
-def resolve_project(ref: str) -> ProjectConfig:
-    """Turn a CLI reference into a loaded :class:`ProjectConfig`."""
+def resolve_project(ref: str, orientation: str | None = None) -> ProjectConfig:
+    """Turn a CLI reference into a loaded :class:`ProjectConfig`.
+
+    ``orientation`` overrides the project's own setting for this invocation
+    (``--orientation vertical`` renders the same project in 9:16).
+    """
     p = Path(ref)
     candidates: list[Path] = []
     if p.exists():
@@ -73,7 +78,10 @@ def resolve_project(ref: str) -> ProjectConfig:
 
     for c in candidates:
         if (c / "project.yaml").exists():
-            return ProjectConfig.load(c)
+            proj = ProjectConfig.load(c)
+            if orientation:
+                proj.orientation = orientation
+            return proj
     raise ConfigError(
         f"could not find a project for {ref!r}. Looked in: "
         + ", ".join(str(c) for c in candidates)
@@ -167,7 +175,7 @@ def _progress_printer(quality: str):
 
 
 def cmd_preview(args: argparse.Namespace) -> int:
-    proj = resolve_project(args.project)
+    proj = resolve_project(args.project, getattr(args, "orientation", None))
     print(hdr(f"Preview render — {proj.title}"))
     only = args.scene or None
     report = renderer.render_project(
@@ -212,8 +220,32 @@ def _final_scene_files(proj: ProjectConfig, only: list[str] | None = None) -> li
 
 
 def cmd_final(args: argparse.Namespace) -> int:
-    proj = resolve_project(args.project)
+    proj = resolve_project(args.project, getattr(args, "orientation", None))
     print(hdr(f"Final render — {proj.title}"))
+
+    # --- narration first, when fitting the video to the voice -----------------
+    # Measuring speech before rendering lets us set each scene's duration to the
+    # actual narration length, which removes the long silent tails you get when
+    # the declared durations are only rough guesses.
+    clips = []
+    narration_path = None
+    if args.voiceover and args.fit_narration:
+        print(hdr("Narration (pocket-tts) — measuring speech"))
+        clips = audio.synthesise_narration(
+            proj, voice=args.voice, language=args.language,
+        )
+        changes = audio.fit_scene_durations(proj, clips, tail=args.tail)
+        if changes:
+            for sid, old, new in changes:
+                print(f"  {sid}: {old:.1f}s -> {new:.1f}s")
+            print(ok(f"fitted {len(changes)} scene duration(s) to the narration"))
+        else:
+            print(warn("no narration measured; keeping the declared durations"))
+        # durations changed -> any cached render is stale for this project
+        if changes:
+            for sid, _, _ in changes:
+                RenderCache(proj.cache_file).invalidate(sid)
+
     only = args.scene or None
     report = renderer.render_project(
         proj, quality="h", only=only, use_cache=not args.no_cache,
@@ -225,14 +257,13 @@ def cmd_final(args: argparse.Namespace) -> int:
         return 1
     print(ok(f"{len(report.results)} scene(s) rendered in {report.total_seconds:.1f}s"))
 
-    # --- optional narration ------------------------------------------------
-    narration_path = None
-    clips = []
-    if args.voiceover:
+    # --- narration (already generated when fitting) ---------------------------
+    if args.voiceover and not clips:
         print(hdr("\nNarration (pocket-tts)"))
         clips = audio.synthesise_narration(
             proj, voice=args.voice, language=args.language,
         )
+    if clips:
         good = [c for c in clips if c.ok]
         for c in clips:
             if c.ok:
@@ -275,7 +306,8 @@ def cmd_final(args: argparse.Namespace) -> int:
           f"{result.duration:.2f}s, audio={result.has_audio}")
 
     if not args.no_qa:
-        _run_qa(result.path, expect=(1920, 1080, 30))
+        o = proj.orient
+        _run_qa(result.path, expect=(o.width, o.height, o.fps))
     return 0
 
 
@@ -459,6 +491,8 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--scene", action="append", help="only this scene id (repeatable)")
     pr.add_argument("--no-cache", action="store_true")
     pr.add_argument("--attempts", type=int, default=renderer.MAX_REPAIR_ATTEMPTS)
+    pr.add_argument("--orientation", choices=["landscape", "vertical"], default=None,
+                    help="override the project orientation for this render")
     pr.set_defaults(func=cmd_preview)
 
     fi = sub.add_parser("final", help="full render + assemble")
@@ -469,6 +503,13 @@ def build_parser() -> argparse.ArgumentParser:
     fi.add_argument("--voiceover", action="store_true", help="generate narration (pocket-tts)")
     fi.add_argument("--voice", default=None, help="pocket-tts voice name or wav path")
     fi.add_argument("--language", default="english", help="pocket-tts language")
+    fi.add_argument("--fit-narration", action="store_true",
+                    help="set each scene's duration to its real narration length "
+                         "(removes long silent pauses; needs --voiceover)")
+    fi.add_argument("--tail", type=float, default=0.6,
+                    help="pause after the last word when fitting narration (default 0.6s)")
+    fi.add_argument("--orientation", choices=["landscape", "vertical"], default=None,
+                    help="override the project orientation for this render")
     fi.add_argument("--music", help="background music file (looped, mixed low)")
     fi.add_argument("--subtitles", action="store_true", help="embed subtitles")
     fi.add_argument("--burn-subtitles", action="store_true", help="burn subtitles into video")

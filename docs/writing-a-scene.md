@@ -67,6 +67,34 @@ and the voice:
 - The renderer passes the duration in through the environment, so scene files
   need no import of the project config.
 
+**Avoid long silent tails.** A declared duration is a guess; if it exceeds the
+narration, the scene freezes after the voice stops. Run the final render with
+`--fit-narration` and the pipeline measures the real speech, sets each scene's
+duration to it (plus `--tail`, default 0.6s), and writes the result back to the
+brief:
+
+```bash
+uv run manimations final myslug --voiceover --fit-narration
+```
+
+## Orientation
+
+Scenes are orientation-agnostic: both landscape (1920×1080) and vertical
+(1080×1920) keep the frame height at 8 scene units, so vertical is just a
+narrower frame. Use the layout helpers rather than fixed x-coordinates and your
+scene works in both:
+
+```python
+layout.safe_width()                     # adapts to the orientation
+layout.columns(3, total_width=layout.safe_width(), gap=0.3)
+layout.fit_width(block, layout.safe_width() - 0.5)
+```
+
+Set the orientation in the brief (`orientation: vertical`) or per render with
+`--orientation vertical`. Vertical gives you less horizontal room, so prefer
+stacked layouts (`rows`) over side-by-side ones (`columns`) when you want a
+scene to look good in both.
+
 ## Emphasis techniques
 
 | Goal | Component |

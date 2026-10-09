@@ -62,6 +62,40 @@ The finished video lands at `projects/ipv6/build/ipv6_final.mp4`.
 The `tts` extra is optional — omit it and everything works except `--voiceover`
 (narration is skipped with a clear message rather than failing).
 
+### Vertical (9:16) for Shorts / Reels / TikTok
+
+Set `orientation: vertical` in the brief (or pass `--orientation vertical`):
+
+```bash
+uv run manimations final ipv6 --orientation vertical --voiceover --fit-narration
+# -> 1080x1920 @ 30fps
+```
+
+Landscape is `1920×1080`; vertical is `1080×1920`. Both keep the Manim frame
+height at 8 scene units, so vertical is simply a narrower frame — your vertical
+spacing and the component library work unchanged, and the safe-area helpers
+adapt automatically.
+
+### Kill the silent pauses (`--fit-narration`)
+
+Scene durations in a brief are guesses. If a scene is declared 18s but the
+narration only runs 12s, the video holds a frozen frame for 6s after the voice
+stops. `--fit-narration` generates the speech **first**, sets each scene's
+duration to the real audio length plus a short tail, writes those durations back
+to `project.yaml`, and then renders:
+
+```bash
+uv run manimations final ipv6 --voiceover --fit-narration --subtitles
+#   01_scarcity: 18.0s -> 15.3s
+#   02_what_address_means: 18.0s -> 12.6s
+#   ...
+#   fitted 7 scene duration(s) to the narration
+# -> 119s instead of 143s, with ~0.6s of air after each scene instead of ~5s
+```
+
+Tune the tail with `--tail 0.4`. Scenes with no narration (a silent title card)
+keep their declared duration.
+
 ---
 
 ## What it produces
@@ -127,7 +161,7 @@ Defined once in `src/manimations/theme.py` and applied automatically by
 
 | Token | Value |
 | --- | --- |
-| Canvas | 1920 × 1080, 30 fps, 16:9 |
+| Canvas | landscape 1920 × 1080 or vertical 1080 × 1920, 30 fps |
 | Background | `#0B1220` (dark navy) |
 | Surfaces | `#141E33` / `#1B2740` / `#22304C` |
 | Text | `#F2F6FC` primary, `#A9B8D4` secondary, `#6C7E9E` muted |
@@ -236,9 +270,11 @@ manimations new NAME [--topic T] [--brief file.yaml] [--dir D] [--force]
 manimations list
 manimations validate PROJECT
 manimations preview  PROJECT [--scene ID]... [--no-cache] [--attempts N]
+                              [--orientation landscape|vertical]
 manimations final    PROJECT [--scene ID]... [--voiceover] [--voice NAME]
                               [--language LANG] [--music FILE] [--subtitles]
-                              [--burn-subtitles] [--no-qa] [--no-cache]
+                              [--burn-subtitles] [--fit-narration] [--tail S]
+                              [--orientation landscape|vertical] [--no-qa] [--no-cache]
 manimations assemble PROJECT [--voiceover] [--music FILE] [--subtitles]
 manimations voiceover PROJECT [--voice NAME] [--language LANG] [--scene ID]
 manimations subtitles PROJECT
@@ -285,6 +321,7 @@ brief entry into a named, renderable scene class.
 title: "How DNS Turns Names Into Addresses"
 slug: dns
 description: "A short explainer on the Domain Name System"
+orientation: landscape         # landscape (1920x1080) or vertical (1080x1920)
 narration_voice: alba          # any pocket-tts voice name, or a path to a wav
 subtitle_lang: en
 # music: assets/music_bed.mp3  # optional bed, looped and mixed low
