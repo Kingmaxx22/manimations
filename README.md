@@ -9,8 +9,10 @@ It ships with a reusable visual component library, a design system, a
 multi-stage rendering pipeline with error recovery, and a finished example
 project: **“What Is IPv6, and Why Is Adoption So Slow?”**
 
-Everything is free and local: Manim + FFmpeg + [pocket-tts](https://github.com/kyutai-labs/pocket-tts)
-(a CPU-only text-to-speech model). No cloud services, no API keys, no subscriptions.
+Everything is free and local: Manim + FFmpeg + a local text-to-speech backend —
+[pocket-tts](https://github.com/kyutai-labs/pocket-tts) (CPU-only, the default) or
+[VoxCPM](https://github.com/OpenBMB/VoxCPM) (OpenBMB; more expressive, GPU-class).
+No cloud services, no API keys, no subscriptions.
 
 ---
 
@@ -61,6 +63,61 @@ The finished video lands at `projects/ipv6/build/ipv6_final.mp4`.
 
 The `tts` extra is optional — omit it and everything works except `--voiceover`
 (narration is skipped with a clear message rather than failing).
+
+### Narration engines (pocket-tts or VoxCPM)
+
+Two local backends are supported; the brief picks one with `narration_engine`,
+or `--engine` overrides it per run:
+
+| Engine | Install | Notes |
+| --- | --- | --- |
+| `pocket-tts` (default) | `uv sync --extra tts` | CPU-only, ~100M params. Named voice catalogue (`alba`, `cosette`, …) or a wav path for voice cloning. |
+| `voxcpm` | `uv sync --extra voxcpm` | [OpenBMB VoxCPM](https://github.com/OpenBMB/VoxCPM) — a 2B-param diffusion TTS, 30 languages, voice design and zero-shot cloning. Needs PyTorch + CUDA and Python < 3.13, and **cannot be quantized** (needs ~8 GB VRAM). |
+| `voxcpm-gguf` | build [llama.cpp-omni](https://github.com/tc-mb/llama.cpp-omni) (see below) | The same VoxCPM2 2B model via **quantized GGUF** — fits a 4 GB GPU and needs no PyTorch. See [Quantized VoxCPM2 on a small GPU](#quantized-voxcpm2-on-a-small-gpu). |
+
+```bash
+# use VoxCPM for one render, with a voice-design prompt instead of a voice name
+uv run manimations final ipv6 --voiceover --engine voxcpm \
+    --voice "A calm, clear male narrator"
+
+# or clone a reference clip
+uv run manimations voiceover ipv6 --engine voxcpm --voice path/to/reference.wav
+
+# pin a specific checkpoint
+uv run manimations final ipv6 --voiceover --engine voxcpm --tts-model openbmb/VoxCPM1.5
+```
+
+For VoxCPM the `narration_voice` value in the brief is interpreted as follows: a
+**path to an audio file** means clone that voice; a **multi-word phrase** is a
+voice-design prompt; anything else (e.g. the pocket-tts default `alba`) is
+ignored and the model's own default voice is used.
+
+### Quantized VoxCPM2 on a small GPU
+
+VoxCPM2 is a 2B model that wants ~8 GB of VRAM in PyTorch — and the Python
+package **cannot be quantized** (its `from_pretrained` has no dtype or
+bitsandbytes hook). The `voxcpm-gguf` engine sidesteps both problems by running
+the same weights through [llama.cpp-omni](https://github.com/tc-mb/llama.cpp-omni)
+as a quantized GGUF, with no PyTorch at all. It is verified on a **4 GB GTX 1650**.
+
+```bash
+# 1. toolchain (Windows): VS 2022 Build Tools (C++ workload), Ninja, Vulkan SDK
+# 2. build the CLI
+git clone --depth 1 https://github.com/tc-mb/llama.cpp-omni.git build/llama.cpp-omni
+cmd /c build/llama.cpp-omni/build_vulkan.bat
+
+# 3. quantized weights: BaseLM (Q8_0, ~1.6 GB) + Acoustic (~1.7 GB)
+hf download DennisHuang648/VoxCPM2-GGUF VoxCPM2-BaseLM-Q8_0.gguf VoxCPM2-Acoustic-F16.gguf \
+    --local-dir build/voxcpm-gguf
+
+# 4. narrate
+uv run manimations voiceover ipv6 --engine voxcpm-gguf
+```
+
+Tune the GPU/CPU split with `--gpu-layers N` (default **8**, the safe value on a
+4 GB card; `0` forces CPU). Override the binary/weight locations with
+`MANIMATIONS_VOXCPM_BIN`, `MANIMATIONS_VOXCPM_BASE_LM`,
+`MANIMATIONS_VOXCPM_ACOUSTIC` and `MANIMATIONS_VOXCPM_GPU_LAYERS`.
 
 ### Vertical (9:16) for Shorts / Reels / TikTok
 
@@ -139,7 +196,7 @@ manimations/
 │       ├── qa.py                 #   real pixel analysis of rendered frames
 │       ├── probe.py              #   ffprobe/ffmpeg wrappers
 │       ├── assembler.py          #   concat + mux (ffmpeg)
-│       └── audio.py              #   pocket-tts narration, music, SRT subtitles
+│       └── audio.py              #   narration engines (pocket-tts/VoxCPM), music, SRT
 ├── projects/
 │   ├── ipv6/                     # ← the finished example project
 │   │   ├── project.yaml          #   the scene brief
@@ -235,7 +292,7 @@ project.yaml ──validate──▶ render preview (480p)
                          render final (1080p30)   [cache-aware]
                               │
                               ▼
-   narration (pocket-tts) ─▶ FFmpeg concat ─▶ mux audio/subs ─▶ final MP4
+   narration (local TTS) ─▶ FFmpeg concat ─▶ mux audio/subs ─▶ final MP4
                               │
                               ▼
                     ffprobe validation + frame QA
@@ -322,7 +379,9 @@ title: "How DNS Turns Names Into Addresses"
 slug: dns
 description: "A short explainer on the Domain Name System"
 orientation: landscape         # landscape (1920x1080) or vertical (1080x1920)
-narration_voice: alba          # any pocket-tts voice name, or a path to a wav
+narration_voice: alba          # voice name, voice-design prompt or reference wav
+narration_engine: pocket-tts   # pocket-tts (CPU, default) or voxcpm (GPU)
+# narration_model: openbmb/VoxCPM2   # optional checkpoint override
 subtitle_lang: en
 # music: assets/music_bed.mp3  # optional bed, looped and mixed low
 
@@ -432,6 +491,9 @@ unchanged scenes and that no sampled frame is blank.
 | `ffmpeg not found` | Install FFmpeg and put it on `PATH` (`winget install Gyan.FFmpeg`, `brew install ffmpeg`, `apt install ffmpeg`). |
 | `cannot import manim` | Run inside the project environment: `uv run manimations …` or activate `.venv`. |
 | `pocket-tts not importable` | Install the extra: `uv sync --extra tts`. Everything else still works. |
+| `voxcpm not importable` | Install the extra: `uv sync --extra voxcpm` — it needs PyTorch + CUDA and Python < 3.13. Or use `--engine pocket-tts`. |
+| `voxcpm2-cli not found` | Build llama.cpp-omni (see [Quantized VoxCPM2](#quantized-voxcpm2-on-a-small-gpu)), or point `MANIMATIONS_VOXCPM_BIN` at the binary. |
+| `voxcpm2-cli failed … ErrorOutOfDeviceMemory` | Too many layers on the GPU. Lower `--gpu-layers` (try 4), or use `--gpu-layers 0` for CPU. |
 | A scene fails to render | Read `projects/<slug>/build/qa/render_errors.txt` — it has the real stderr and the failure class. |
 | Fonts look wrong | `manimations validate` reports the resolved heading/body/mono families; install one of the fallbacks. |
 | Rendering is slow | Use `preview` while iterating; the cache skips scenes whose inputs did not change. |
@@ -443,7 +505,8 @@ unchanged scenes and that no sampled frame is blank.
 - [Manim Community Edition](https://www.manim.community/) — vector animation engine
 - [FFmpeg](https://ffmpeg.org/) — encoding, assembly and frame analysis
 - [pocket-tts](https://github.com/kyutai-labs/pocket-tts) by Kyutai — local CPU text-to-speech
+- [VoxCPM](https://github.com/OpenBMB/VoxCPM) by OpenBMB — expressive multilingual TTS (alternative narration backend)
 - [uv](https://docs.astral.sh/uv/) — environment and dependency management
 
 Licensed for educational use; respect the licences of the individual tools and
-the pocket-tts voice samples you choose.
+the voice samples you choose (pocket-tts voices, or a VoxCPM reference clip).

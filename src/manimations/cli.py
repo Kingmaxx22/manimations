@@ -24,7 +24,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .config import ConfigError, ProjectConfig
+from .config import ConfigError, ProjectConfig, TTS_ENGINES
 from .pipeline import assembler, audio, probe, qa, renderer, validator
 from .pipeline.cache import RenderCache
 
@@ -212,6 +212,43 @@ def cmd_preview(args: argparse.Namespace) -> int:
     return 0
 
 
+def _engine_opts(args: argparse.Namespace) -> dict:
+    """Shared narration-backend options for the commands that synthesise speech.
+
+    ``--engine`` overrides the brief; ``--tts-model`` overrides the checkpoint
+    (mainly for VoxCPM, where the model id is not a voice name).
+    """
+    opts: dict = {}
+    engine = getattr(args, "engine", None)
+    if engine:
+        opts["engine_name"] = engine
+    model = getattr(args, "tts_model", None)
+    if model:
+        opts["model"] = model
+    layers = getattr(args, "gpu_layers", None)
+    if layers is not None:
+        opts["n_gpu_layers"] = layers
+    return opts
+
+
+def _add_engine_args(parser: argparse.ArgumentParser) -> None:
+    """Attach the narration-backend flags to a subparser."""
+    parser.add_argument(
+        "--engine", choices=list(TTS_ENGINES), default=None,
+        help="narration backend: pocket-tts (CPU, default), voxcpm (PyTorch, "
+             "needs a big GPU) or voxcpm-gguf (quantized, fits a small GPU)",
+    )
+    parser.add_argument(
+        "--tts-model", default=None,
+        help="checkpoint override for the engine (e.g. openbmb/VoxCPM2)",
+    )
+    parser.add_argument(
+        "--gpu-layers", type=int, default=None,
+        help="voxcpm-gguf only: layers to offload to the GPU "
+             "(default 8, tuned for a 4 GB card; 0 forces CPU)",
+    )
+
+
 def _final_scene_files(proj: ProjectConfig, only: list[str] | None = None) -> list[Path]:
     """Final-quality scene files in brief order."""
     specs = [s for s in proj.scenes if not only or s.id in only]
@@ -230,9 +267,11 @@ def cmd_final(args: argparse.Namespace) -> int:
     clips = []
     narration_path = None
     if args.voiceover and args.fit_narration:
-        print(hdr("Narration (pocket-tts) — measuring speech"))
+        engine = audio.resolve_engine_name(args.engine or proj.narration_engine)
+        print(hdr(f"Narration ({engine}) — measuring speech"))
         clips = audio.synthesise_narration(
             proj, voice=args.voice, language=args.language,
+            **_engine_opts(args),
         )
         changes = audio.fit_scene_durations(proj, clips, tail=args.tail)
         if changes:
@@ -259,9 +298,11 @@ def cmd_final(args: argparse.Namespace) -> int:
 
     # --- narration (already generated when fitting) ---------------------------
     if args.voiceover and not clips:
-        print(hdr("\nNarration (pocket-tts)"))
+        engine = audio.resolve_engine_name(args.engine or proj.narration_engine)
+        print(hdr(f"\nNarration ({engine})"))
         clips = audio.synthesise_narration(
             proj, voice=args.voice, language=args.language,
+            **_engine_opts(args),
         )
     if clips:
         good = [c for c in clips if c.ok]
@@ -317,7 +358,9 @@ def cmd_assemble(args: argparse.Namespace) -> int:
     narration = None
     clips = []
     if args.voiceover:
-        clips = audio.synthesise_narration(proj, voice=args.voice, language=args.language)
+        clips = audio.synthesise_narration(
+            proj, voice=args.voice, language=args.language, **_engine_opts(args),
+        )
         narration = audio.build_narration_track(proj, clips)
     subs = audio.build_srt(proj, clips) if (args.subtitles or args.voiceover) else None
     music = Path(args.music) if args.music else None
@@ -336,9 +379,11 @@ def cmd_assemble(args: argparse.Namespace) -> int:
 
 def cmd_voiceover(args: argparse.Namespace) -> int:
     proj = resolve_project(args.project)
-    print(hdr(f"Narration — {proj.title} (voice={args.voice})"))
+    engine_name = audio.resolve_engine_name(args.engine or proj.narration_engine)
+    print(hdr(f"Narration — {proj.title} (engine={engine_name}, voice={args.voice})"))
     clips = audio.synthesise_narration(
         proj, voice=args.voice, language=args.language, only=args.scene or None,
+        **_engine_opts(args),
     )
     okc = 0
     for c in clips:
@@ -500,9 +545,10 @@ def build_parser() -> argparse.ArgumentParser:
     fi.add_argument("--scene", action="append")
     fi.add_argument("--no-cache", action="store_true")
     fi.add_argument("--attempts", type=int, default=renderer.MAX_REPAIR_ATTEMPTS)
-    fi.add_argument("--voiceover", action="store_true", help="generate narration (pocket-tts)")
-    fi.add_argument("--voice", default=None, help="pocket-tts voice name or wav path")
-    fi.add_argument("--language", default="english", help="pocket-tts language")
+    fi.add_argument("--voiceover", action="store_true", help="generate narration (local TTS)")
+    fi.add_argument("--voice", default=None, help="voice name, voice-design prompt or reference wav")
+    fi.add_argument("--language", default="english", help="narration language")
+    _add_engine_args(fi)
     fi.add_argument("--fit-narration", action="store_true",
                     help="set each scene's duration to its real narration length "
                          "(removes long silent pauses; needs --voiceover)")
@@ -521,6 +567,7 @@ def build_parser() -> argparse.ArgumentParser:
     asm.add_argument("--voiceover", action="store_true")
     asm.add_argument("--voice", default=None)
     asm.add_argument("--language", default="english")
+    _add_engine_args(asm)
     asm.add_argument("--music")
     asm.add_argument("--subtitles", action="store_true")
     asm.add_argument("--burn-subtitles", action="store_true")
@@ -530,6 +577,7 @@ def build_parser() -> argparse.ArgumentParser:
     vo.add_argument("project")
     vo.add_argument("--voice", default=None)
     vo.add_argument("--language", default="english")
+    _add_engine_args(vo)
     vo.add_argument("--scene", action="append")
     vo.set_defaults(func=cmd_voiceover)
 

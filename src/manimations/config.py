@@ -31,6 +31,11 @@ _CLASS_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 ACCENTS = ("cyan", "violet", "amber", "green", "rose", "blue", "slate")
 
+#: Narration backends the pipeline can drive (canonical names; aliases are
+#: folded in by ``manimations.pipeline.audio.resolve_engine_name``).
+TTS_ENGINES = ("pocket-tts", "voxcpm", "voxcpm-gguf")
+DEFAULT_TTS_ENGINE = "pocket-tts"
+
 #: Words-per-minute band used to sanity-check narration against duration.
 WPM_MIN, WPM_MAX = 105, 185
 
@@ -124,6 +129,10 @@ class ProjectConfig:
     scenes: list[SceneSpec]
     root: Path
     narration_voice: str = "alba"
+    #: Narration backend: "pocket-tts" (default) or "voxcpm".
+    narration_engine: str = DEFAULT_TTS_ENGINE
+    #: Optional checkpoint override for the engine (e.g. "openbmb/VoxCPM2").
+    narration_model: str | None = None
     music: str | None = None
     subtitle_lang: str = "en"
     author: str = ""
@@ -194,6 +203,11 @@ class ProjectConfig:
             problems.append(
                 f"orientation {self.orientation!r} must be 'landscape' or 'vertical'"
             )
+        if self.narration_engine not in TTS_ENGINES:
+            problems.append(
+                f"narration_engine {self.narration_engine!r} must be one of "
+                f"{TTS_ENGINES}"
+            )
         ids = [s.id for s in self.scenes]
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
@@ -230,6 +244,12 @@ class ProjectConfig:
             scenes=[SceneSpec.from_dict(s) for s in scenes_raw],
             root=root,
             narration_voice=str(data.get("narration_voice", "alba")),
+            narration_engine=str(
+                data.get("narration_engine", DEFAULT_TTS_ENGINE)
+            ).strip().lower(),
+            narration_model=(
+                str(data["narration_model"]) if data.get("narration_model") else None
+            ),
             music=data.get("music"),
             subtitle_lang=str(data.get("subtitle_lang", "en")),
             author=str(data.get("author", "")),

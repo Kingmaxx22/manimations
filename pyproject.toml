@@ -15,6 +15,9 @@ dependencies = [
 [project.optional-dependencies]
 # Narration is optional: everything else works without it.
 tts = ["pocket-tts>=3.3.0"]
+# VoxCPM is an alternative narration backend (more expressive, GPU-class):
+# a 2B model that needs PyTorch + CUDA and Python < 3.13.
+voxcpm = ["voxcpm>=2.0.0", "soundfile>=0.12"]
 
 [project.scripts]
 manimations = "manimations.cli:main"

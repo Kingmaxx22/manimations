@@ -138,7 +138,9 @@ title: "{title}"
 slug: {slug}
 description: "{description}"
 orientation: landscape          # landscape (1920x1080) or vertical (1080x1920)
-narration_voice: alba          # any pocket-tts voice name or a path to a wav
+narration_voice: alba          # pocket-tts voice name, or a path to a wav
+narration_engine: pocket-tts   # pocket-tts (CPU, default) or voxcpm (GPU)
+# narration_model: openbmb/VoxCPM2   # optional checkpoint override
 subtitle_lang: en
 # music: assets/music_bed.mp3  # optional background bed (looped, mixed low)
 

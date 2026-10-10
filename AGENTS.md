@@ -67,7 +67,7 @@ src/manimations/
     ├── qa.py           real pixel analysis of rendered frames
     ├── probe.py        ffprobe/ffmpeg wrappers
     ├── assembler.py    concat + mux
-    └── audio.py        pocket-tts narration, scene fitting, SRT subtitles
+    └── audio.py        narration engines (pocket-tts/VoxCPM), fitting, SRT subtitles
 
 projects/
 ├── ipv6/               the finished example (8 scenes, both orientations)
@@ -81,10 +81,12 @@ docs/ examples/         the scene-authoring guide and a sample brief
 ## 4. Environment and commands
 
 Python ≥ 3.10, `uv`, FFmpeg on `PATH`. The project venv holds Manim CE 0.22,
-pocket-tts (optional, CPU TTS) and pytest.
+pocket-tts (optional, CPU TTS), VoxCPM (optional, GPU TTS) and pytest.
 
 ```bash
 uv sync --extra tts                  # install (omit the extra to skip narration)
+uv sync --extra voxcpm               # optional: VoxCPM PyTorch backend (needs ~8 GB VRAM)
+                                     #   for a 4 GB GPU use the voxcpm-gguf engine instead
 
 uv run manimations validate ipv6     # pre-flight: brief, deps, fonts, classes
 uv run manimations preview  ipv6     # 480p render + pixel QA + contact sheets
@@ -264,3 +266,51 @@ Be honest about these rather than working around them:
   exercised against a real audio file.
 - pocket-tts needs network access **once** to fetch model weights; offline runs
   will report narration as unavailable rather than failing.
+- The **PyTorch VoxCPM backend** (`--engine voxcpm`) is covered by tests against a
+  stub but has **not** been run against the real model: it needs PyTorch + CUDA
+  and Python < 3.13, none of which the dev box has. It also cannot be quantized —
+  voxcpm 2.0.3's `from_pretrained` exposes no dtype or bitsandbytes hook, so it
+  needs ~8 GB of VRAM for the 2B model.
+- The **quantized GGUF backend** (`--engine voxcpm-gguf`) *has* been exercised
+  against the real 2B model — see §13 for the measured numbers. Its caveats are
+  the llama.cpp-omni dependency and the fixed layer-count default.
+- llama.cpp-omni is **Linux-first**: its Windows story is build-from-source (the
+  only prebuilt binaries are the Comni GUI, which has no headless CLI). The
+  Windows build is verified here, but a Linux/macOS build may behave differently.
+
+---
+
+## 13. The quantized VoxCPM2 backend (voxcpm-gguf)
+
+`--engine voxcpm-gguf` narrates through llama.cpp-omni's `voxcpm2-cli`, which
+loads **GGUF** weights — the only way to quantize VoxCPM2, since the Python
+package offers none. It needs no PyTorch at all.
+
+**Build (Windows, verified):**
+
+```bash
+# one-time toolchain: VS 2022 Build Tools (C++ workload), Ninja, Vulkan SDK
+git clone --depth 1 https://github.com/tc-mb/llama.cpp-omni.git build/llama.cpp-omni
+cmd /c build/llama.cpp-omni/build_vulkan.bat      # sets VULKAN_SDK, builds voxcpm2-cli
+hf download DennisHuang648/VoxCPM2-GGUF VoxCPM2-BaseLM-Q8_0.gguf VoxCPM2-Acoustic-F16.gguf \
+    --local-dir build/voxcpm-gguf
+```
+
+The CLI takes **two** GGUFs (BaseLM + Acoustic); a combined single-file GGUF from
+another runtime will not load.
+
+**Measured on a 4 GB GTX 1650 (Turing, sm_75)** — ~3.6 GB of weights resident, so
+the layer count must be capped or generation OOMs when the AudioVAE decode graph
+grows:
+
+| `--gpu-layers` | Result |
+| --- | --- |
+| 0 (CPU) | works, RTF ~10.7 |
+| 8 (default) | works, RTF ~2.4–4.8 |
+| 10 | works for short text |
+| 12 | OOM on project-length narration |
+| 16 / all | OOM immediately |
+
+Tuning knobs: `--gpu-layers N`, or the env vars `MANIMATIONS_VOXCPM_BIN`,
+`MANIMATIONS_VOXCPM_BASE_LM`, `MANIMATIONS_VOXCPM_ACOUSTIC`,
+`MANIMATIONS_VOXCPM_GPU_LAYERS` (for installs outside the repo).
