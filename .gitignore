@@ -24,6 +24,16 @@ media/
 # QA artefacts that are cheap to regenerate
 **/_qa_frames/
 
+# Graphify's knowledge graph: regenerable with `graphify update .` (no API key),
+# and ~2 MB of JSON/HTML.  The same reasoning as build/ and media/ — generated
+# output does not belong in the repo.
+graphify-out/
+
+# playwright-cli writes a page snapshot and a console log per command into
+# .playwright-cli/ in the CWD (~178 KB a session).  It is read-once output, not
+# source — point it elsewhere or let it be ignored.
+.playwright-cli/
+
 # Topic projects are local content: `manimations new` scaffolds them under
 # projects/<slug>/ and they stay on the author's machine.  The example projects
 # committed before this rule (_template, dns, gdu, ipv6) are already tracked, and

@@ -40,8 +40,8 @@ def test_long_badge_is_fitted_to_the_frame(monkeypatch):
 
     Regression: a 30-character badge measured 4.4 units, wider than the whole
     4.5-unit 9:16 frame, and pushed content off both edges (caught by the
-    overlap/edge QA on projects/cloudflared).  Badges must be fitted like any
-    other component that grows with its content.
+    overlap/edge QA on projects/episode-4-cloudflared).  Badges must be fitted
+    like any other component that grows with its content.
     """
     from manimations.theme import apply_theme
 

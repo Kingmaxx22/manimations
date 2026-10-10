@@ -13,7 +13,7 @@ independent of what the sources happen to be.
 
 Run from the repo root, after `manimations final usbipd ...`:
 
-    uv run python projects/usbipd/mix_sfx.py
+    uv run python projects/episode-2-usbipd/mix_sfx.py
 """
 
 from __future__ import annotations

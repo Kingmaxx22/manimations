@@ -51,16 +51,16 @@ uv run manimations validate usbipd
 uv run manimations preview  usbipd
 uv run manimations final    usbipd --voiceover --engine voxcpm-gguf \
                                    --fit-narration --subtitles
-uv run python projects/usbipd/mix_sfx.py     # narration + placed SFX
+uv run python projects/episode-2-usbipd/mix_sfx.py     # narration + placed SFX
 ```
 
 `mix_sfx.py` writes `build/usbipd_with_sfx.m4a`; mux it over the render:
 
 ```bash
-ffmpeg -y -i projects/usbipd/build/usbipd_final.mp4 \
-          -i projects/usbipd/build/usbipd_with_sfx.m4a \
+ffmpeg -y -i projects/episode-2-usbipd/build/usbipd_final.mp4 \
+          -i projects/episode-2-usbipd/build/usbipd_with_sfx.m4a \
        -map 0:v -map 1:a -map 0:s? -c:v copy -c:a copy -c:s mov_text \
-       -movflags +faststart projects/usbipd/build/usbipd_reel.mp4
+       -movflags +faststart projects/episode-2-usbipd/build/usbipd_reel.mp4
 ```
 
 `build/usbipd_reel.mp4` is the deliverable: video + narration + SFX + soft subs.

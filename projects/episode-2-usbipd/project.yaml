@@ -31,7 +31,7 @@
 # spelled here at the source.
 
 title: "The WSL Trick That Feels Illegal"
-slug: usbipd
+slug: episode-2-usbipd
 description: "Pass a physical USB device straight into WSL 2 — no dual-boot"
 orientation: vertical
 narration_voice: alba

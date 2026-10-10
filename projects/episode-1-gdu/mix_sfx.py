@@ -14,7 +14,7 @@ gain, makes the mix independent of what the sources happen to be.
 
 Run from the repo root, after `manimations final gdu --orientation vertical`:
 
-    uv run python projects/gdu/mix_sfx.py
+    uv run python projects/episode-1-gdu/mix_sfx.py
 """
 
 from __future__ import annotations

@@ -14,8 +14,113 @@ subscriptions.
 
 ---
 
+## 0. Standing constraints for agents (read before anything else)
+
+Four rules that override convenience. They exist because each one was broken
+once and cost real time or real disk.
+
+### 0.1 Keep everything on `D:`. Do not touch `C:` unless it is necessary.
+
+This repository, its venv, its model weights, its renders and its scratch files
+all live on `D:` (a 928 GB volume). `C:` is the smaller system drive and is
+shared with the OS.
+
+- Write scratch/temp files under `build/scratch/` in the repo, **not** under
+  `$TMPDIR`, `%TEMP%`, `~/AppData/Local/Temp` or `~/.cache`.
+- Model weights, downloaded GGUFs, llama.cpp builds and any multi-GB artefact go
+  under `build/` (already git-ignored), never into a home-directory cache.
+- When a tool defaults to a `C:` cache (`pip`, `npm`, `uv`, `huggingface_hub`,
+  `graphify`), point it at `D:` **before** it populates the default location, or
+  set the tool's own env var (`HF_HOME`, `UV_CACHE_DIR`, `XDG_CACHE_HOME`, …).
+  Do not silently relocate a cache a tool has already filled — check where it
+  writes first.
+- **Necessary exceptions** (use them, but say so in the report): the tool itself
+  only exists on `C:` (e.g. `winget`, npm global shims, Ollama's own install),
+  or a read-only lookup of a system path. Installing a package manager's global
+  binary to `C:` is acceptable; parking a 3 GB model cache there is not.
+
+### 0.2 Do not run things on this machine unless the user asked for it.
+
+Rendering, tests, installs, TTS synthesis and network calls all cost time,
+electricity, disk and GPU. A `D:`-side read is free; a render is not.
+
+- **Default to reading.** `read_file`, `search_files` and the graphify graph
+  answer most questions without executing anything.
+- **Do not execute the subject of a video.** A Short explaining a CLI tool,
+  a tunnel, a server or a scheduler does not need that tool run to be accurate —
+  the claims come from the vendor's docs and the commands go on screen as text.
+  Never point a destructive or system-modifying command at the user's real data
+  to "verify" it; build a throwaway fixture instead.
+- **Ask before a long or expensive run** (a full render, a model download, a
+  multi-minute TTS pass, a dependency install), and batch so one run answers
+  every open question rather than one question per run.
+- When the user *does* ask for it ("render it", "run the tests", "install it"),
+  run it and report the real numbers.
+
+### 0.3 Read the proper docs on the web — with `playwright-cli`.
+
+Do not answer a factual question about an external tool from memory, and do not
+trust a third-party summary when the vendor publishes the fact itself. **Vendor
+docs and vendor product pages are the authority**; blog posts, aggregator sites
+and "FAQ" pages on unrelated domains are not.
+
+`playwright-cli` (already installed, npm global) drives a real browser and is the
+way to read a page that a plain fetch mangles or blocks:
+
+```bash
+playwright-cli open "https://docs.ollama.com/windows"     # open + navigate
+playwright-cli goto "https://ollama.com/library/llama3.1" # navigate an open session
+playwright-cli find "4.9GB"                               # search the page, with context
+playwright-cli eval "() => document.body.innerText.slice(0, 2000)"
+playwright-cli snapshot                                   # a11y tree with element refs
+playwright-cli close
+```
+
+- Prefer `find "<string>"` and a small `eval` that slices `innerText` — they
+  return text you can cite, not a wall of markup.
+- Use `snapshot` when you need to click or fill something (it gives `ref=eN`).
+- **Cite what you read, with the URL and the date.** Record the vendor's own
+  wording where a claim depends on it.
+- A page that 403s (Cloudflare) is a signal to try the vendor's docs domain or
+  a different route — not a licence to fall back on a secondary source.
+
+Worked example, and why this rule exists: the model size for
+`ollama run llama3.1:8b` was taken from third-party write-ups as **4.7 GB** and
+rendered on screen. Reading `ollama.com/library/llama3.1` live showed the vendor
+lists **4.9GB**. The wrong number was in a delivered video; the vendor page
+settled it in one command.
+
+### 0.4 Use the graphify graph to understand this codebase.
+
+`graphify-out/` holds a knowledge graph of this repo — 1013 nodes, 2000 edges,
+70 **named** communities (`ExplainerScene core`, `Layout and safe areas`,
+`Narration, TTS and subtitles`, …). Query it instead of grepping blind:
+
+```bash
+graphify query "how does a scene pad to its declared duration" --budget 600
+graphify explain "ProjectConfig"       # a node and its neighbours
+graphify path "ExplainerScene" "Renderer"   # shortest path between concepts
+graphify god-nodes --top 12            # the architectural hubs
+```
+
+- **Treat a codebase question as a graphify query first.** It returns the
+  structure — who calls whom, which module owns a concern — which is exactly what
+  `grep` cannot show you.
+- Read `graphify-out/GRAPH_REPORT.md` for god nodes, surprising connections and
+  the community map before a broad refactor.
+- After changing code, refresh it: `graphify update .` (no API key, no LLM).
+- The graph's god nodes are the real architecture: `ProjectConfig` (87 edges) and
+  `ExplainerScene` (51) are the only two bridges across the codebase, and there
+  are **no import cycles** — the §2 rule holds.
+
+---
+
 ## 1. Read this first
 
+- **Ask the graphify graph first** (§0.4). For "how does X work", "what calls Y"
+  or "where does Z live", `graphify query` / `explain` / `path` answers from the
+  built structure in one command, and `graphify-out/GRAPH_REPORT.md` has the
+  architecture map. Grep afterwards, to confirm a detail — not to explore.
 - **The hard-won Manim CE 0.22 facts are in the `manim-video` skill**, under
   `references/manim-ce-0.22-pipeline-lessons.md`. Read it before touching
   rendering, layout or the pipeline. It records pitfalls that cost real renders
@@ -77,6 +182,7 @@ projects/
 
 tests/                  166 unit tests + 7 real-render end-to-end tests
 docs/ examples/         the scene-authoring guide and a sample brief
+graphify-out/           knowledge graph of this repo (git-ignored; see §0.4)
 ```
 
 ## 4. Environment and commands
@@ -101,6 +207,9 @@ uv run pytest                        # adds tests that really render + assemble
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
+
+Scratch files, probes and downloads go under `build/scratch/` (git-ignored, on
+`D:`). Never write them to `$TMPDIR` / `%TEMP%` / `~/.cache` — see §0.1.
 
 ## 5. Authoring a scene
 
@@ -253,9 +362,50 @@ narration lands in 105–185 wpm for its declared duration.
 - Framework ~5.8k lines across `src/manimations/`.
 - `projects/ipv6`: 8 scenes, verified clean in both orientations; final render
   1080×1920 @ 30fps, 119.4 s, with narration and subtitles.
-- `projects/gdu` and `projects/usbipd`: vertical 9:16 Shorts with narration
-  (voxcpm-gguf) and placed SFX. `usbipd` is 1080×1920 @ 30fps, 40.5 s.
+- Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd`, `episode-3-sortdl`,
+  `episode-4-cloudflared`, `episode-5-ollama`, `episode-6-f3` (all voxcpm-gguf).
+  `episode-2-usbipd` is 1080×1920 @ 30fps, 40.5 s; `episode-5-ollama` is 38.9 s.
+- `projects/ipv6` and `projects/dns` are standalone explainers, **not** part of
+  the numbered series. `dns` is still the generated stubs.
 - 166 unit tests + 7 end-to-end tests passing.
+- `graphify-out/` holds a knowledge graph of the repo (1013 nodes, 70 labelled
+  communities) built with `graphify extract . --code-only`. Query it with
+  `graphify query "<question>"` or read `graphify-out/GRAPH_REPORT.md` before
+  grepping. Rebuild after code changes with `graphify update .` (no API key).
+
+### 11.1 The Shorts series — canonical episode numbering
+
+**This table is the source of truth. Do not re-derive an episode number from the
+draft script; drafts routinely guess wrong.** Check it before writing any CTA.
+
+Project folders are named `episode-<N>-<slug>`, and the folder name is also the
+`slug:` in that project's `project.yaml` — so `manimations preview episode-6-f3`
+works with no extra lookup.
+
+| Ep | folder (= slug) | its CTA says |
+| --- | --- | --- |
+| 1 | `episode-1-gdu` | *(unnumbered — "Follow for more")* |
+| 2 | `episode-2-usbipd` | "Follow for Episode 3" |
+| 3 | `episode-3-sortdl` | "Follow for Episode 4" |
+| 4 | `episode-4-cloudflared` | "Follow for Episode 5" |
+| 5 | `episode-5-ollama` | "Follow for Episode 6" |
+| 6 | `episode-6-f3` | "Follow for Episode 7" |
+
+Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
+its `slug:`, and have its CTA say `N+2`.
+
+Two known inconsistencies, left as-is because the rendered videos are already
+published — fix them only when re-rendering the affected episode:
+
+- **`episode-1-gdu` never numbered itself.** Its CTA is "Follow for more /
+  terminal black magic". That is why the chain *looks* like it starts at 2.
+- **The series has two names in the files:** "Developer & Power-User Black Magic"
+  (`gdu`, `usbipd`, `ollama`, `f3`) and "Power-User & Developer Shortcuts"
+  (`sortdl`, `cloudflared`). Pick one when the series is next branded.
+
+The CTA is spoken, so it is subject to the TTS pronunciation check (§0.3) —
+"Follow for Episode seven" is safe, a bare numeral is not.
 
 ## 12. Known gaps
 
