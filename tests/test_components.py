@@ -35,6 +35,30 @@ def test_badge_and_callout():
     assert isinstance(surfaces.callout("note here"), VGroup)
 
 
+def test_long_badge_is_fitted_to_the_frame(monkeypatch):
+    """A badge sizes itself from its text, so a long label can exceed the frame.
+
+    Regression: a 30-character badge measured 4.4 units, wider than the whole
+    4.5-unit 9:16 frame, and pushed content off both edges (caught by the
+    overlap/edge QA on projects/cloudflared).  Badges must be fitted like any
+    other component that grows with its content.
+    """
+    from manimations.theme import apply_theme
+
+    for width in ("landscape", "vertical"):
+        monkeypatch.setenv("MANIMATIONS_ORIENTATION", width)
+        apply_theme()
+        limit = layout.safe_width() * 0.94
+        b = surfaces.badge("NO SIGN-UP  ·  NO ROUTER CONFIG", size=17)
+        assert b.width <= limit + 1e-6, (width, b.width, limit)
+        assert layout.is_inside_safe_area(b), (width, b.width)
+
+
+def test_explicit_badge_max_width_is_honoured():
+    b = surfaces.badge("a deliberately very long badge label here", max_width=1.5)
+    assert b.width <= 1.5 + 1e-6
+
+
 def test_connector_between_mobjects():
     a = surfaces.badge("a")
     b = surfaces.badge("b")

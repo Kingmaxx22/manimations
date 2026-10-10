@@ -76,8 +76,15 @@ def card(title: str | None = None, body_text: str | None = None, *, width: float
     return VGroup(surface, inner)
 
 
-def badge(text: str, *, accent: ManimColor | None = None, size: int | None = None) -> VGroup:
-    """A small pill label (e.g. "IPv4", "32-bit")."""
+def badge(text: str, *, accent: ManimColor | None = None, size: int | None = None,
+          max_width: float | None = None) -> VGroup:
+    """A small pill label (e.g. "IPv4", "32-bit").
+
+    The pill is sized from its text, so a long label can exceed a narrow frame
+    on its own: a 30-character badge measures 4.4 units, which is wider than the
+    whole 4.5-unit 9:16 frame.  It is therefore fitted to the safe area by
+    default, like every other component that can grow.
+    """
     accent = accent or THEME.accent
     t = typography.label(text, size=size or THEME.sizes.small, color=accent, weight="BOLD")
     surface = RoundedRectangle(
@@ -85,7 +92,10 @@ def badge(text: str, *, accent: ManimColor | None = None, size: int | None = Non
         fill_color=accent, fill_opacity=0.14, stroke_color=accent, stroke_width=1.4,
     )
     t.move_to(surface.get_center())
-    return VGroup(surface, t)
+    pill = VGroup(surface, t)
+    limit = max_width if max_width is not None else layout.safe_width() * 0.94
+    layout.fit_width(pill, limit)
+    return pill
 
 
 # --------------------------------------------------------------------------
