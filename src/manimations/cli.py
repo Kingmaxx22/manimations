@@ -201,6 +201,24 @@ def cmd_preview(args: argparse.Namespace) -> int:
                 else:
                     print("  " + ok(f"{res.scene_id}: {analysis.n_frames_sampled} "
                                    f"frames analysed, layout clean"))
+            # Overlapping mobjects are invisible to pixel QA, so report the
+            # scene's own collision findings too.
+            overlap = renderer.read_overlap_report(proj, res.scene_id)
+            if overlap:
+                pairs = overlap.get("collisions") or []
+                off = overlap.get("offending") or []
+                if pairs:
+                    qa_problems += 1
+                    for i, j in pairs:
+                        print("  " + warn(
+                            f"{res.scene_id}: content {i} overlaps {j} "
+                            f"(overlapping text/graphics)"
+                        ))
+                if off:
+                    qa_problems += 1
+                    print("  " + warn(
+                        f"{res.scene_id}: outside the safe area: {', '.join(off)}"
+                    ))
     print()
     print(f"  {len(report.results)} scene(s) in {report.total_seconds:.1f}s")
     if not report.ok:

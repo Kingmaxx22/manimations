@@ -1,0 +1,6 @@
+# Asset credits
+
+- [no credit needed (CC0)] [freesound] "wKey.wav" by UberBosser (http://creativecommons.org/publicdomain/zero/1.0/) — https://freesound.org/people/UberBosser/sounds/421581/
+  - file: wkey_wav.mp3
+- [no credit needed (CC0)] [freesound] "spacebarKey.wav" by UberBosser (http://creativecommons.org/publicdomain/zero/1.0/) — https://freesound.org/people/UberBosser/sounds/421582/
+  - file: spacebarkey_wav.mp3

@@ -1,0 +1,58 @@
+# Manimations project brief — "The Terminal Command That Feels Like Cheating" (gdu)
+#
+# Vertical 9:16 for Reels / Shorts / TikTok.  Durations here are estimates; run
+# with --fit-narration to snap each scene to its real speech length.
+#
+# Facts verified against the gdu README (dundee/gdu):
+#   * `d` deletes, arrow keys navigate, `D` sends to trash
+#   * benchmark: a 90 GB / 400k-file tree in ~4.7s cold cache, ~0.5s warm
+#     (NOT "hundreds of gigabytes in two seconds" — that claim is not supported)
+
+title: "The Terminal Command That Feels Like Cheating"
+slug: gdu
+description: "Stop waiting for Windows to calculate folder size"
+orientation: vertical
+narration_voice: alba
+narration_engine: pocket-tts
+subtitle_lang: en
+
+scenes:
+  - id: 01_hook
+    class: SceneHook
+    accent: rose
+    duration: 6.3
+    narration: "Stop waiting ten minutes for Windows to calculate a folder size. Here is what the pros actually use."
+    visuals: [frozen-progress, spinner, caption]
+    notes: "Frozen 'Calculating...' dialog with an endless spinner; big STOP WAITING."
+
+  - id: 02_problem
+    class: SceneProblem
+    accent: amber
+    duration: 6.3
+    narration: "We have all stared at that loading bar, watching gigabytes crawl while the CPU fans start screaming."
+    visuals: [progress-bar, cpu-meter]
+    notes: "A progress bar that barely moves; a CPU meter pinned at 100%."
+
+  - id: 03_solution
+    class: SceneSolution
+    accent: green
+    duration: 7.8
+    narration: "Instead, open a terminal and type g d u. It scans a huge directory tree in seconds, and shows you where every gigabyte is hiding."
+    visuals: [terminal-prompt, gdu-tree, stat]
+    notes: "Type `gdu`; an interactive size-sorted tree appears instantly."
+
+  - id: 04_features
+    class: SceneFeatures
+    accent: cyan
+    duration: 7.2
+    narration: "Use the arrow keys to drill into bloated directories, find the junk folder you forgot about, and hit d to wipe it on the spot."
+    visuals: [tree, keycaps, delete]
+    notes: "Arrow keys navigate; the highlighted row descends; `d` deletes the folder."
+
+  - id: 05_outro
+    class: SceneOutro
+    accent: violet
+    duration: 6.8
+    narration: "It is lightning fast, open source, and completely free. Follow for more terminal black magic."
+    visuals: [install-commands, cta]
+    notes: "Install lines for apt / brew / pacman, then the follow CTA."

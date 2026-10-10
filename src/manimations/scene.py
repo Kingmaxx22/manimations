@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
 from manim import (
@@ -34,6 +35,12 @@ from .theme import THEME, Theme, apply_theme
 #: Environment variable the render pipeline sets so a scene knows its declared
 #: duration.  Keeping this out-of-band means scene files need no project import.
 SPEC_ENV = "MANIMATIONS_SCENE_SPEC"
+
+#: Environment variable naming a file the scene should write its overlap report
+#: to.  Pixel QA cannot detect two mobjects drawn on top of each other — they sit
+#: inside the safe area and still read as "content" — so the scene itself reports
+#: its collisions and the QA pass reads the sidecar.
+OVERLAP_ENV = "MANIMATIONS_OVERLAP_REPORT"
 
 
 @dataclass
@@ -90,6 +97,7 @@ class ExplainerScene(Scene):
         def construct(self, _user=user_construct):  # type: ignore[override]
             _user(self)
             self._pad_to_target()
+            self._write_overlap_report()
 
         construct._manimations_wrapped = True  # type: ignore[attr-defined]
         cls.construct = construct
@@ -160,6 +168,25 @@ class ExplainerScene(Scene):
             "collisions": pairs,
             "n_content": len(self._content),
         }
+
+    def _write_overlap_report(self) -> None:
+        """Persist :meth:`qa_report` for the pipeline, when asked to.
+
+        Overlapping text/graphics is invisible to the frame-level QA (both
+        mobjects are inside the safe area and both count as "content"), so the
+        scene is the only place that can detect it.  Silent when the env var is
+        unset, i.e. when a scene is run directly through the Manim CLI.
+        """
+        target = os.environ.get(OVERLAP_ENV)
+        if not target:
+            return
+        try:
+            report = self.qa_report()
+            path = Path(target)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(report), encoding="utf-8")
+        except Exception as exc:  # never fail a render over diagnostics
+            print(f"warning: could not write overlap report: {exc}")
 
     # ------------------------------------------------------------------
     # chrome

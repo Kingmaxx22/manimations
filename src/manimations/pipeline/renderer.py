@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import ProjectConfig, SceneSpec
-from ..scene import SPEC_ENV
+from ..scene import OVERLAP_ENV, SPEC_ENV
 from ..theme import ORIENTATION_ENV
 from .cache import RenderCache
 from .errors import FailureKind, RenderError, RepairLog, classify
@@ -136,6 +136,12 @@ def render_scene(
         spec.cls,
     ]
 
+    # Ask the scene to self-report overlapping content.  Pixel QA cannot see
+    # this: two texts drawn on top of each other still sit inside the safe area
+    # and still look like "content", so only the scene's own mobject geometry
+    # can catch it.  Written to a sidecar the QA pass reads.
+    report_path = log_dir / f"{spec.id}.overlap.json"
+
     last_error: RenderError | None = None
     # Tell the scene its declared duration and the frame orientation, so it can
     # pad to match the narration and lay out correctly for the aspect ratio.
@@ -144,6 +150,7 @@ def render_scene(
         {"id": spec.id, "duration": spec.duration, "accent": spec.accent}
     )
     env[ORIENTATION_ENV] = project.orientation
+    env[OVERLAP_ENV] = str(report_path)
     for attempt in range(1, max_attempts + 1):
         t0 = time.time()
         try:
@@ -256,6 +263,17 @@ def render_project(
         log.write(project.qa_dir / "render_errors.txt")
 
     return PipelineReport(results=results, repair_log=log, total_seconds=time.time() - t0)
+
+
+def read_overlap_report(project: ProjectConfig, scene_id: str) -> dict | None:
+    """The scene's self-reported collision/off-screen findings, if it wrote one."""
+    path = project.qa_dir / "logs" / f"{scene_id}.overlap.json"
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
 
 
 def contact_sheet(video: Path, out_png: Path, *, cols: int = 3, rows: int = 2,

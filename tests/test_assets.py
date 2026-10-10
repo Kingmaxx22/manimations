@@ -329,3 +329,45 @@ def test_set_project_music_replaces_existing_key(project_dir):
     text = yaml_path.read_text(encoding="utf-8")
     assert "old.mp3" not in text
     assert text.count("music:") == 1
+
+
+def test_write_credits_merges_across_batches(tmp_path):
+    """A second download must not erase the first batch's attribution.
+
+    Regression: write_credits overwrote the file, so fetching whooshes and then
+    key clacks left only the clacks credited.
+    """
+    first = [assets.Asset("freesound", "1", "Whoosh #1", "alice",
+                          "http://creativecommons.org/publicdomain/zero/1.0/",
+                          "https://freesound.org/s/1", "https://cdn/1.mp3")]
+    second = [assets.Asset("freesound", "2", "wKey", "bob",
+                           "http://creativecommons.org/publicdomain/zero/1.0/",
+                           "https://freesound.org/s/2", "https://cdn/2.mp3")]
+
+    path = tmp_path / "credits.json"
+    assets.write_credits(first, path)
+    assets.write_credits(second, path)
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    ids = sorted(a["id"] for a in payload["assets"])
+    assert ids == ["1", "2"]
+    txt = path.with_suffix(".txt").read_text(encoding="utf-8")
+    assert "Whoosh #1" in txt and "wKey" in txt
+
+
+def test_write_credits_merge_is_idempotent(tmp_path):
+    """Re-recording the same asset must not duplicate it."""
+    a = [assets.Asset("freesound", "1", "Whoosh", "alice", "Creative Commons 0", "", "")]
+    path = tmp_path / "credits.json"
+    assets.write_credits(a, path)
+    assets.write_credits(a, path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["count"] == 1
+
+
+def test_write_credits_survives_a_corrupt_file(tmp_path):
+    path = tmp_path / "credits.json"
+    path.write_text("{not json", encoding="utf-8")
+    a = [assets.Asset("freesound", "1", "W", "x", "Creative Commons 0", "", "")]
+    assets.write_credits(a, path)  # must not raise
+    assert json.loads(path.read_text(encoding="utf-8"))["count"] == 1

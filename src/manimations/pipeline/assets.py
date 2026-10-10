@@ -407,25 +407,45 @@ def write_credits(assets: list[Asset], path: Path) -> Path:
     CC0 assets need no credit, but recording everything is cheap and makes the
     licence status of a finished video auditable after the fact.  Each line is
     tagged so it is obvious what is *required* rather than merely recorded.
+
+    Existing entries are **merged**, not replaced: downloading a second batch of
+    assets must not erase the attribution for the first, which is exactly what
+    an overwrite would do to a video's credits.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    merged: dict[tuple[str, str], Asset] = {}
+    if path.exists():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+            for raw in previous.get("assets", []):
+                p = dict(raw)
+                p["path"] = Path(p["path"]) if p.get("path") else None
+                a = Asset(**{k: v for k, v in p.items() if k in Asset.__dataclass_fields__})
+                merged[(a.source, a.id)] = a
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass  # unreadable/corrupt: start a fresh record rather than crash
+    for a in assets:
+        merged[(a.source, a.id)] = a
+
+    everything = list(merged.values())
     payload = {
-        "count": len(assets),
-        "needs_attribution": len(needs_attribution(assets)),
-        "assets": [a.to_dict() for a in assets],
+        "count": len(everything),
+        "needs_attribution": len(needs_attribution(everything)),
+        "assets": [a.to_dict() for a in everything],
     }
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    required = [a for a in assets if not is_cc0(a.license)]
+    required = [a for a in everything if not is_cc0(a.license)]
     lines = ["# Asset credits", ""]
     if required:
         lines.append(
-            f"{len(required)} of {len(assets)} asset(s) REQUIRE attribution "
+            f"{len(required)} of {len(everything)} asset(s) REQUIRE attribution "
             f"(non-CC0). Include these lines in the video description:"
         )
         lines.append("")
-    for a in assets:
+    for a in everything:
         flag = "REQUIRED" if not is_cc0(a.license) else "no credit needed (CC0)"
         lines.append(f"- [{flag}] [{a.source}] {a.credit()}")
         if a.path:

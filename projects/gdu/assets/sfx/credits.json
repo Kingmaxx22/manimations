@@ -1,0 +1,30 @@
+{
+  "count": 2,
+  "needs_attribution": 0,
+  "assets": [
+    {
+      "source": "freesound",
+      "id": "421581",
+      "title": "wKey.wav",
+      "author": "UberBosser",
+      "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://freesound.org/people/UberBosser/sounds/421581/",
+      "audio_url": "https://cdn.freesound.org/previews/421/421581_8368754-hq.mp3",
+      "duration": 0.159864,
+      "path": "projects\\gdu\\assets\\sfx\\wkey_wav.mp3",
+      "extra": {}
+    },
+    {
+      "source": "freesound",
+      "id": "421582",
+      "title": "spacebarKey.wav",
+      "author": "UberBosser",
+      "license": "http://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://freesound.org/people/UberBosser/sounds/421582/",
+      "audio_url": "https://cdn.freesound.org/previews/421/421582_8368754-hq.mp3",
+      "duration": 0.167483,
+      "path": "projects\\gdu\\assets\\sfx\\spacebarkey_wav.mp3",
+      "extra": {}
+    }
+  ]
+}
