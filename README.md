@@ -503,9 +503,15 @@ demand. It genuinely analyses rendered frames — it does not just claim to:
 - samples frames with FFmpeg and locates the bounding box of non-background
   pixels, checking it against the safe area (**text clipping / off-screen**)
 - detects content touching the frame border
-- detects blank or near-empty frames (a scene that failed to draw)
+- detects blank or near-empty frames (a scene that failed to draw, or one that
+  fades its first mobject in from zero opacity — which would put a black frame
+  at a scene boundary, i.e. exactly where the assembled video cuts)
 - validates **resolution, fps and duration** from the file on disk
 - writes a per-video JSON report and per-scene contact sheets
+
+Sampling is 1 fps, so a short flash at a cut can slip between samples; scene
+boundaries are worth checking at full frame rate when a scene changes its
+opening animation.
 
 ```bash
 uv run manimations qa --project ipv6            # all preview renders

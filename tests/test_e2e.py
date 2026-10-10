@@ -117,10 +117,13 @@ def test_assemble_and_qa(tiny_project):
     qa_result = qa.analyse_video(out)
     assert qa_result is not None
     assert qa_result.n_frames_sampled > 0
-    # The scenes fade in, so the very first frame may be empty; the bulk of the
-    # video must show content.
-    non_blank = [f for f in qa_result.frames if not f.blank]
-    assert len(non_blank) >= max(1, len(qa_result.frames) - 1)
+    # Every sampled frame must show content.  Scenes reveal their header before
+    # anything animates, so there is no blank lead-in frame at a cut; a scene
+    # that fades its first mobject in from zero opacity would put one there.
+    assert not [f.index for f in qa_result.frames if f.blank], (
+        "no sampled frame should be blank — a scene must not open on pure "
+        "background"
+    )
 
 
 def _tone(path: Path, seconds: float = 3.0, freq: int = 440) -> Path:

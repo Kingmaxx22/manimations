@@ -192,7 +192,21 @@ class ExplainerScene(Scene):
     # chrome
     # ------------------------------------------------------------------
     def add_header(self, title: str, *, accent=None, index: str | None = None) -> VGroup:
-        """Draw the persistent scene header: accent bar + section title."""
+        """Draw the persistent scene header: accent bar + section title.
+
+        The header is added to the scene *before* it animates, so it is already
+        visible in the scene's first frame.  A plain ``FadeIn`` starts from zero
+        opacity, which renders the frame completely blank — and because the
+        header is the first thing every scene draws, that put a pure-background
+        frame at the head of *every* scene in the assembled video (measured:
+        ~0.14s of black at each scene boundary, since a fade-out-cubic easing is
+        still near-transparent for the first ~15% of its run).  The same applies
+        to ``GrowFromEdge``, which collapses a mobject to a point at t=0.
+
+        Only a small settle-in slide is animated, so the frame always carries the
+        header.  Text that never disappears also reads as chrome rather than as
+        one more element arriving.
+        """
         accent = accent or self.theme.accent
         header = typography.scene_header(title, accent=accent, index=index)
         max_w = layout.safe_width()
@@ -202,7 +216,11 @@ class ExplainerScene(Scene):
         left = -max_w / 2
         header.move_to([left + header.width / 2, self.theme.spacing.header_y, 0])
         self._header = header
-        self.play(FadeIn(header, shift=DOWN * 0.2), run_time=self.theme.motion.base)
+        # Add at a slightly raised position, then settle down into place: the
+        # motion reads the same as the old fade-in but never blanks the frame.
+        header.shift(UP * 0.18)
+        self.add(header)
+        self.play(header.animate.shift(DOWN * 0.18), run_time=self.theme.motion.base)
         return header
 
     def add_footer(self, text: str, *, accent=None) -> VGroup:
