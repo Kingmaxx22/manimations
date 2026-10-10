@@ -99,7 +99,8 @@ def mux_audio(
     """Add narration/music/subtitles to an assembled (silent) video.
 
     * narration is the primary track
-    * music, if given, is looped and mixed underneath at ``music_gain_db``
+    * music, if given, is looped and mixed underneath at ``music_gain_db``, or
+      used alone when there is no narration
     * subtitles are embedded as a soft ``mov_text`` track by default, or burned
       in when ``burn_subtitles`` is set (keeps everything in one MP4 either way)
     """
@@ -109,33 +110,37 @@ def mux_audio(
 
     dst.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", str(video)]
-    inputs = 1
     filters: list[str] = []
 
-    has_audio = False
-    if narration and Path(narration).exists():
+    # Collect the audio inputs in the order they are added, remembering each
+    # one's ffmpeg stream index.  Music counts on its own: a bed with no
+    # narration is a legitimate (and previously silent) case.
+    has_narration = bool(narration and Path(narration).exists())
+    has_music = bool(music and Path(music).exists())
+    narr_idx = music_idx = None
+    if has_narration:
         cmd += ["-i", str(narration)]
-        has_audio = True
-    if music and Path(music).exists():
+        narr_idx = cmd.count("-i") - 1
+    if has_music:
         cmd += ["-stream_loop", "-1", "-i", str(music)]
+        music_idx = cmd.count("-i") - 1
 
-    audio_inputs = []
-    if narration and Path(narration).exists():
-        audio_inputs.append((1, "narration"))
-    if music and Path(music).exists():
-        audio_inputs.append((2 if audio_inputs else 1, "music"))
-
-    if has_audio:
-        narr_idx = audio_inputs[0][0]
-        if len(audio_inputs) > 1:
-            music_idx = audio_inputs[1][0]
-            filters.append(
-                f"[{narr_idx}:a]volume=1.0[narr];"
-                f"[{music_idx}:a]volume={music_gain_db}dB[mus];"
-                f"[narr][mus]amix=inputs=2:duration=first:dropout_transition=2[aout]"
-            )
-        else:
-            filters.append(f"[{narr_idx}:a]volume=1.0[aout]")
+    has_audio = has_narration or has_music
+    if has_narration and has_music:
+        filters.append(
+            f"[{narr_idx}:a]volume=1.0[narr];"
+            f"[{music_idx}:a]volume={music_gain_db}dB[mus];"
+            f"[narr][mus]amix=inputs=2:duration=first:dropout_transition=2[aout]"
+        )
+    elif has_narration:
+        filters.append(f"[{narr_idx}:a]volume=1.0[aout]")
+    elif has_music:
+        # Music-only: trim the looped bed to the video so it cannot outlast it.
+        # Without narration there is no padded track to bound the mix.
+        info = probe.probe_video(video)
+        video_duration = info.duration if info and info.duration > 0 else 0.0
+        trim = f"atrim=0:{video_duration:.3f}" if video_duration else "anull"
+        filters.append(f"[{music_idx}:a]volume={music_gain_db}dB,{trim}[aout]")
 
     sub_idx = None
     if subtitles and Path(subtitles).exists() and not burn_subtitles:

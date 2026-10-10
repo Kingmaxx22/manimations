@@ -68,6 +68,7 @@ src/manimations/
     ├── probe.py        ffprobe/ffmpeg wrappers
     ├── assembler.py    concat + mux
     └── audio.py        narration engines (pocket-tts/VoxCPM), fitting, SRT subtitles
+    └── assets.py       free asset search/download (Freesound SFX, Jamendo music)
 
 projects/
 ├── ipv6/               the finished example (8 scenes, both orientations)
@@ -262,8 +263,12 @@ Be honest about these rather than working around them:
   been programmatic (safe-area/edge/blank pixel analysis) plus contact sheets in
   `projects/*/build/qa/`. Automated *semantic* inspection of what a diagram
   means is **not** implemented.
-- The **music bed** (`--music`) is implemented and unit-tested but has not been
-  exercised against a real audio file.
+- The **music bed** (`--music`) is implemented and now exercised against real
+  audio in the end-to-end tests, including the music-only case (no narration),
+  which a bug had been silently dropping. The Freesound/Jamendo download paths
+  are covered by injected-transport tests plus a live check of the error paths;
+  they have **not** been run against a real API key, since none is configured
+  here.
 - pocket-tts needs network access **once** to fetch model weights; offline runs
   will report narration as unavailable rather than failing.
 - The **PyTorch VoxCPM backend** (`--engine voxcpm`) is covered by tests against a

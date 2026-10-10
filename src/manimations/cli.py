@@ -11,6 +11,7 @@ Commands
 ``voiceover``    generate narration audio only (pocket-tts)
 ``subtitles``    build an SRT from the brief / generated narration
 ``demo``         render the component-library demo scene
+``assets``       search/download free SFX (Freesound) or music (Jamendo)
 ``qa``           analyse a rendered video (resolution, fps, blank/edge frames)
 ``contact-sheet`` build a contact sheet of frames from a video
 
@@ -25,7 +26,7 @@ import sys
 from pathlib import Path
 
 from .config import ConfigError, ProjectConfig, TTS_ENGINES
-from .pipeline import assembler, audio, probe, qa, renderer, validator
+from .pipeline import assembler, assets, audio, probe, qa, renderer, validator
 from .pipeline.cache import RenderCache
 
 PROJECTS_DIR = Path("projects")
@@ -496,6 +497,108 @@ def cmd_qa_project(args: argparse.Namespace) -> int:
     return 0
 
 
+def _asset_engine(args: argparse.Namespace):
+    """Build the Freesound or Jamendo client for the ``assets`` command."""
+    kind = getattr(args, "source", None)
+    if kind == "sfx":
+        client = assets.FreesoundClient()
+        if not client.available()[0]:
+            print(bad(client.available()[1]))
+            return None
+        return client
+    client = assets.JamendoClient()
+    if not client.available()[0]:
+        print(bad(client.available()[1]))
+        return None
+    return client
+
+
+def _cmd_assets_search(args: argparse.Namespace) -> int:
+    client = _asset_engine(args)
+    if client is None:
+        return 1
+    if args.source == "sfx":
+        results = client.search(
+            args.query, count=args.count,
+            license=None if args.any_license else assets.FREESOUND_CC0,
+            max_duration=args.max_duration,
+        )
+    else:
+        results = client.search(
+            tags=args.query or None, count=args.count,
+            audioformat=args.format,
+            max_duration=args.max_duration,
+        )
+    if not results:
+        print(warn("no downloadable results"))
+        return 1
+    for i, a in enumerate(results, 1):
+        dur = f"{a.duration:5.1f}s" if a.duration else "     ?"
+        print(f"  {i:>2}. {dur}  {a.title[:52]:<52} {a.author[:22]:<22} {a.license}")
+    return 0
+
+
+def _cmd_assets_get(args: argparse.Namespace) -> int:
+    client = _asset_engine(args)
+    if client is None:
+        return 1
+    if args.source == "sfx":
+        results = client.search(
+            args.query, count=args.count,
+            license=None if args.any_license else assets.FREESOUND_CC0,
+            max_duration=args.max_duration,
+        )
+    else:
+        results = client.search(
+            tags=args.query or None, count=args.count,
+            audioformat=args.format,
+            max_duration=args.max_duration,
+        )
+    if not results:
+        print(warn("no downloadable results"))
+        return 1
+
+    out_dir = Path(args.out) if args.out else Path("build/assets")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    saved: list[assets.Asset] = []
+    for a in results:
+        try:
+            client.fetch(a, out_dir)
+        except assets.AssetError as exc:
+            print("  " + bad(f"{a.title[:40]}: {exc}"))
+            continue
+        saved.append(a)
+        print("  " + ok(f"{a.path.name}  ({a.title[:40]})"))
+    if not saved:
+        return 1
+
+    credits = assets.write_credits(saved, out_dir / "credits.json")
+    print(ok(f"credits: {credits}"))
+    must = assets.needs_attribution(saved)
+    if must:
+        print(warn(f"{len(must)} asset(s) require attribution — see "
+                   f"{credits.with_suffix('.txt').name}"))
+
+    if args.project and args.source == "music":
+        proj = resolve_project(args.project)
+        target = proj.root / "assets" / "music_bed" / saved[0].path.name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+
+        shutil.copy2(saved[0].path, target)
+        if assets.set_project_music(proj.root, target):
+            print(ok(f"project music set: {target.name}"))
+            print(hdr("\nnext:"))
+            print(f"  manimations final {proj.slug} --voiceover --music {target}")
+    return 0
+
+
+def cmd_assets(args: argparse.Namespace) -> int:
+    if args.action == "search":
+        return _cmd_assets_search(args)
+    return _cmd_assets_get(args)
+
+
 def cmd_contact_sheet(args: argparse.Namespace) -> int:
     out = Path(args.output) if args.output else Path(args.video).with_suffix(".sheet.png")
     sheet = renderer.contact_sheet(Path(args.video), out, cols=args.cols, rows=args.rows)
@@ -596,6 +699,23 @@ def build_parser() -> argparse.ArgumentParser:
     q.add_argument("--final", action="store_true", help="analyse final renders, not previews")
     q.add_argument("--expect", help="expected W,H,FPS e.g. 1920,1080,30")
     q.set_defaults(func=cmd_qa)
+
+    ast = sub.add_parser("assets", help="find/download free SFX (Freesound) or music (Jamendo)")
+    ast.add_argument("source", choices=["sfx", "music"])
+    ast.add_argument("action", choices=["search", "get"],
+                     help="search: list candidates; get: download them")
+    ast.add_argument("query", nargs="?", default=None,
+                     help="search terms (tags for music)")
+    ast.add_argument("--count", type=int, default=3, help="results (default 3)")
+    ast.add_argument("--out", help="download directory (default build/assets)")
+    ast.add_argument("--format", choices=list(assets.JAMENDO_FORMATS), default="mp32",
+                     help="music audio format (default mp32)")
+    ast.add_argument("--max-duration", type=float, default=None,
+                     help="only results at most this many seconds long")
+    ast.add_argument("--any-license", action="store_true",
+                     help="sfx: allow non-CC0 licences (adds an attribution duty)")
+    ast.add_argument("--project", help="music: also set this project's music bed")
+    ast.set_defaults(func=cmd_assets)
 
     cs = sub.add_parser("contact-sheet", help="build a contact sheet from a video")
     cs.add_argument("video")

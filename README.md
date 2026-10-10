@@ -320,6 +320,51 @@ Key guarantees, all enforced in code:
 
 ---
 
+## Free assets: sound effects and music
+
+Two free, key-based REST APIs are wrapped so a workflow can pull SFX and a
+background bed without hunting for files. Both keys go in the **environment** —
+never in the repo:
+
+```bash
+export FREESOUND_API_KEY=...   # https://freesound.org/apiv2/apply
+export JAMENDO_CLIENT_ID=...   # https://devportal.jamendo.com/
+```
+
+```bash
+# sound effects — CC0 by default, so no attribution is required
+uv run manimations assets sfx search whoosh --count 5
+uv run manimations assets sfx get transition --count 3 --max-duration 2
+
+# background music — downloads, credits it, and wires it into a project
+uv run manimations assets music get "electronic upbeat" --count 1 --project ipv6
+```
+
+`get` writes the files plus a `credits.json` / `credits.txt` recording the
+author, licence and source URL of everything it downloaded.
+
+**Two licence facts worth knowing**, because they are not the same on both sides:
+
+- **Freesound** results are filtered to `Creative Commons 0` by default, which is
+  the point of using it here — no attribution obligation. `--any-license` lifts
+  the filter, which also creates an attribution duty.
+- **Jamendo has no CC0 catalogue.** Its tracks are Creative Commons (often
+  BY-NC), so credit is genuinely required, and the credits file records it.
+  Tracks that set `audiodownload_allowed = false` are skipped rather than
+  substituted with the streaming URL — the API docs require honouring that.
+
+Key-free caveat: Freesound's key-only path serves **preview MP3s** (transcoded),
+not the original upload — retrieving originals needs OAuth2. For UI clicks,
+transition whooshes and short ambience that is not a problem.
+
+Then render with the bed mixed low under the narration:
+
+```bash
+uv run manimations final ipv6 --voiceover --music projects/ipv6/assets/music_bed/*.mp3
+```
+
+---
+
 ## Command reference
 
 ```
@@ -338,6 +383,9 @@ manimations subtitles PROJECT
 manimations qa VIDEO [--expect W,H,FPS] | qa --project SLUG [--final]
 manimations contact-sheet VIDEO [--cols N] [--rows N] [--output PNG]
 manimations demo [--quality l|m|h]
+manimations assets {sfx|music} {search|get} [QUERY] [--count N] [--out DIR]
+                              [--format mp31|mp32|ogg|flac] [--max-duration S]
+                              [--any-license] [--project SLUG]
 ```
 
 `PROJECT` accepts a slug (`ipv6`), a directory (`projects/ipv6`) or a path to a
@@ -494,6 +542,9 @@ unchanged scenes and that no sampled frame is blank.
 | `voxcpm not importable` | Install the extra: `uv sync --extra voxcpm` — it needs PyTorch + CUDA and Python < 3.13. Or use `--engine pocket-tts`. |
 | `voxcpm2-cli not found` | Build llama.cpp-omni (see [Quantized VoxCPM2](#quantized-voxcpm2-on-a-small-gpu)), or point `MANIMATIONS_VOXCPM_BIN` at the binary. |
 | `voxcpm2-cli failed … ErrorOutOfDeviceMemory` | Too many layers on the GPU. Lower `--gpu-layers` (try 4), or use `--gpu-layers 0` for CPU. |
+| `no Freesound API key` | Free key at <https://freesound.org/apiv2/apply>, then `export FREESOUND_API_KEY=…`. |
+| `no Jamendo client id` | Free client id at <https://devportal.jamendo.com/>, then `export JAMENDO_CLIENT_ID=…`. |
+| `Jamendo rejected the request` | Bad/expired client id, or a parameter the API rejects — the message carries Jamendo's own error. |
 | A scene fails to render | Read `projects/<slug>/build/qa/render_errors.txt` — it has the real stderr and the failure class. |
 | Fonts look wrong | `manimations validate` reports the resolved heading/body/mono families; install one of the fallbacks. |
 | Rendering is slow | Use `preview` while iterating; the cache skips scenes whose inputs did not change. |

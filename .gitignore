@@ -11,6 +11,12 @@ wheels/
 .venv*/
 venv/
 
+# Secrets — API keys for the asset providers (Freesound / Jamendo) live here.
+# Never commit these; use .env.example for the variable names.
+.env
+.env.*
+!.env.example
+
 # Manim / pipeline output
 media/
 projects/*/build/

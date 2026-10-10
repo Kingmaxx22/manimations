@@ -121,3 +121,59 @@ def test_assemble_and_qa(tiny_project):
     # video must show content.
     non_blank = [f for f in qa_result.frames if not f.blank]
     assert len(non_blank) >= max(1, len(qa_result.frames) - 1)
+
+
+def _tone(path: Path, seconds: float = 3.0, freq: int = 440) -> Path:
+    """A real WAV, so the mux path is exercised against actual audio."""
+    import subprocess
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
+         "-i", f"sine=frequency={freq}:duration={seconds}",
+         "-ar", "44100", "-ac", "1", str(path)],
+        check=True, capture_output=True,
+    )
+    return path
+
+
+def test_assemble_with_music_only_produces_audio(tiny_project, tmp_path):
+    """Regression: a music bed with no narration used to be silently dropped.
+
+    ``has_audio`` was only set when narration existed, so ffmpeg received the
+    music input but no ``-map`` for it: the mux succeeded and the result had no
+    audio track at all.
+    """
+    proj = ProjectConfig.load(tiny_project)
+    report = renderer.render_project(proj, quality="l", timeout=300)
+    assert report.ok
+    files = [r.path for r in report.results]
+    bed = _tone(tmp_path / "bed.wav", seconds=3.0)
+
+    out = tmp_path / "music_only.mp4"
+    result = assembler.assemble_project(proj, files, music=bed, output=out)
+    assert result.ok, result.message
+    assert result.has_audio, "music-only assembly produced no audio track"
+
+    info = probe.probe_video(out)
+    assert info is not None and info.has_audio
+    # the looped bed must be trimmed to the video, not left running longer
+    assert abs(info.duration - result.duration) < 0.5
+
+
+def test_assemble_with_narration_and_music_mixes_both(tiny_project, tmp_path):
+    proj = ProjectConfig.load(tiny_project)
+    report = renderer.render_project(proj, quality="l", timeout=300)
+    assert report.ok
+    files = [r.path for r in report.results]
+    narr = _tone(tmp_path / "narr.wav", seconds=3.0, freq=220)
+    bed = _tone(tmp_path / "bed.wav", seconds=3.0, freq=880)
+
+    out = tmp_path / "both.mp4"
+    result = assembler.assemble_project(
+        proj, files, narration=narr, music=bed, output=out
+    )
+    assert result.ok, result.message
+    assert result.has_audio
+    info = probe.probe_video(out)
+    assert info is not None and info.has_audio
