@@ -75,7 +75,7 @@ projects/
 ├── dns/                a second example scaffolded from examples/dns_brief.yaml
 └── _template/          copyable starter for a new topic
 
-tests/                  90 unit tests + 4 real-render end-to-end tests
+tests/                  166 unit tests + 7 real-render end-to-end tests
 docs/ examples/         the scene-authoring guide and a sample brief
 ```
 
@@ -203,9 +203,9 @@ regression:
 ## 8. Testing
 
 ```bash
-uv run pytest -m "not slow"    # 90 unit tests: config, theme, components,
+uv run pytest -m "not slow"    # 166 unit tests: config, theme, components,
                                # layout, orientation, narration fitting, pipeline
-uv run pytest                   # + 4 e2e tests that render with Manim, assemble
+uv run pytest                   # + 7 e2e tests that render with Manim, assemble
                                # with FFmpeg, and assert on the real output
 ```
 
@@ -250,10 +250,12 @@ narration lands in 105–185 wpm for its declared duration.
 
 ## 11. Current state
 
-- Framework ~4.7k lines across `src/manimations/`.
+- Framework ~5.8k lines across `src/manimations/`.
 - `projects/ipv6`: 8 scenes, verified clean in both orientations; final render
   1080×1920 @ 30fps, 119.4 s, with narration and subtitles.
-- 90 unit tests + 4 end-to-end tests passing.
+- `projects/gdu` and `projects/usbipd`: vertical 9:16 Shorts with narration
+  (voxcpm-gguf) and placed SFX. `usbipd` is 1080×1920 @ 30fps, 40.5 s.
+- 166 unit tests + 7 end-to-end tests passing.
 
 ## 12. Known gaps
 

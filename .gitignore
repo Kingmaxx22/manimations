@@ -19,9 +19,16 @@ venv/
 
 # Manim / pipeline output
 media/
-projects/*/build/
-projects/*/media/
 *.pyc
 
 # QA artefacts that are cheap to regenerate
 **/_qa_frames/
+
+# Topic projects are local content: `manimations new` scaffolds them under
+# projects/<slug>/ and they stay on the author's machine.  The example projects
+# committed before this rule (_template, dns, gdu, ipv6) are already tracked, and
+# an ignore rule does not untrack anything — so they stay in the repository while
+# new topics are kept out of it.  Publish one explicitly with
+# `git add -f projects/<slug>` when it is worth sharing.
+projects/
+

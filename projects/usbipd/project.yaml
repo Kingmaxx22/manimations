@@ -1,0 +1,80 @@
+# Manimations project brief — "The WSL Trick That Feels Illegal" (usbipd)
+#
+# Vertical 9:16 for Reels / Shorts / TikTok.  Episode 2 of the
+# "Developer & Power-User Black Magic" series.  Durations here are estimates;
+# render with --fit-narration to snap each scene to its real speech length.
+#
+# Commands verified against usbipd-win 5.3.0 installed on this machine
+# (`usbipd --help`, `usbipd list`, `usbipd bind --help`, `usbipd attach --help`)
+# and Microsoft's "Connect USB devices" doc:
+#
+#   * `usbipd list`                         — lists devices; no elevation needed
+#   * `usbipd bind --busid <BUSID>`         — shares a device; REQUIRES Administrator
+#   * `usbipd attach --wsl --busid <BUSID>` — pipes it into WSL; no elevation
+#
+# NOT used, deliberately: the `usbipd wsl list` / `usbipd wsl attach` spelling
+# from the source script.  That syntax was removed in usbipd-win 4.0.0 and
+# errors out on 5.x — verified here:
+#   $ usbipd wsl list
+#   usbipd: error: The 'wsl' subcommand has been removed.
+#
+# Also dropped: "instead of dual-booting".  usbipd-win redirects a device to
+# WSL 2; it is not a dual-boot replacement, and the claim does not survive the
+# project's own README.
+#
+# Narration spells out the acronyms as separate letters ("W S L", "U S B",
+# "U S B I P D", "L S U S B").  That is not decoration: synthesised both ways
+# and transcribed with faster-whisper, voxcpm-gguf reads "usbipd" as a single
+# word as "SBIPT" and "lsusb" garbled, while the spaced forms come back as
+# "USB IPD" / "LSUSB" correctly.  The framework's normalise_for_tts only covers
+# the acronyms its own projects used (IPv6, NAT, DNS, ...), so these are
+# spelled here at the source.
+
+title: "The WSL Trick That Feels Illegal"
+slug: usbipd
+description: "Pass a physical USB device straight into WSL 2 — no dual-boot"
+orientation: vertical
+narration_voice: alba
+narration_engine: voxcpm-gguf
+subtitle_lang: en
+
+scenes:
+  - id: 01_hook
+    class: SceneHook
+    accent: rose
+    duration: 8.8
+    narration: "If you use W S L on Windows, your Linux side cannot see a single U S B device. Here is the trick that fixes it."
+    visuals: [terminal-frame, empty-lsusb, headline]
+    notes: "A WSL terminal where lsusb comes back with nothing, then the promise."
+
+  - id: 02_problem
+    class: SceneProblem
+    accent: amber
+    duration: 6.2
+    narration: "By default Windows claims every USB device, so your microcontroller or flash drive is locked out of Linux."
+    visuals: [device-card, windows-card, wsl-card, broken-link]
+    notes: "Device -> Windows -> WSL, with the link between Windows and WSL cut."
+
+  - id: 03_solution
+    class: SceneSolution
+    accent: green
+    duration: 9.7
+    narration: "Open PowerShell in admin mode, list the devices, bind the one you want, then attach it to U S B I P D, and the hardware is piped straight into Linux."
+    visuals: [powershell-frame, usbipd-list, usbipd-bind, usbipd-attach, admin-badge]
+    notes: "The three real commands, typed in order, with the bus ID highlighted."
+
+  - id: 04_payoff
+    class: ScenePayoff
+    accent: cyan
+    duration: 8.6
+    narration: "Now L S U S B lists your device inside Linux, so you can flash firmware, read raw drives, or run hardware scripts without leaving Windows."
+    visuals: [terminal-frame, lsusb-output, device-node, use-list]
+    notes: "The same terminal, now showing the device and its /dev node."
+
+  - id: 05_outro
+    class: SceneOutro
+    accent: violet
+    duration: 7
+    narration: "It is free, open source, and it works with any W S L two distro. Follow for Episode three."
+    visuals: [badge, tool-card, repo, cta]
+    notes: "Name the tool, the install line, the repo, then the follow prompt."
