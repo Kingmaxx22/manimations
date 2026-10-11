@@ -149,15 +149,19 @@ class _FakeEngine(audio.TTSEngine):
     name = "fake"
     label = "Fake"
 
-    def __init__(self, fail: bool = False):
+    def __init__(self, fail: bool = False, fail_on: str | None = None):
         self.calls: list[str] = []
         self.fail = fail
+        #: Fail only for text containing this substring — the partial-failure
+        #: case, which is the dangerous one: the other scenes succeed, so the
+        #: pipeline has "some" narration and can look healthy.
+        self.fail_on = fail_on
 
     def available(self) -> tuple[bool, str]:
         return True, "fake"
 
     def synthesise(self, text: str, out_wav):
-        if self.fail:
+        if self.fail or (self.fail_on and self.fail_on in text):
             raise RuntimeError("boom")
         self.calls.append(text)
         out_wav.parent.mkdir(parents=True, exist_ok=True)
@@ -179,6 +183,42 @@ def test_synthesise_narration_reports_failed_clip(project_dir):
     clips = audio.synthesise_narration(proj, engine=_FakeEngine(fail=True))
     assert all(not c.ok for c in clips)
     assert all("boom" in c.error for c in clips)
+
+
+def test_partial_narration_failure_is_surfaced_not_silently_padded(project_dir):
+    """One scene failing must be reported, even when the others succeed.
+
+    The dangerous shape is a *partial* failure: the other scenes produce real
+    audio, so the pipeline has "some" narration and the render is still
+    assembled and reported as fine.  Observed on episode-17-gentoo, where a
+    voxcpm2-cli crash (rc=0xC0000409, a stack-buffer-overrun abort at 167 chars
+    of text on 6 GPU layers) turned one scene into 10.4 s of silence while the
+    final video reported `audio=True` and zero QA problems.
+
+    So: build_narration_track must still align the timeline (silence placeholder),
+    and the caller must be able to see exactly which scenes are missing.
+    """
+    proj = ProjectConfig.load(project_dir)
+    # The conftest fixture has two scenes; fail only the second one.
+    engine = _FakeEngine(fail_on="body explains")
+    clips = audio.synthesise_narration(proj, engine=engine)
+
+    ok_ids = [c.scene_id for c in clips if c.ok]
+    bad = [c for c in clips if not c.ok]
+    assert ok_ids == ["01_intro"], "the first scene should still succeed"
+    assert [c.scene_id for c in bad] == ["02_body"]
+    assert "boom" in bad[0].error
+
+    # The track is still built (alignment is preserved) — but a caller that
+    # checks can tell a scene is silent.
+    assert len([c for c in clips if c.ok]) != len(clips)
+
+
+def test_failed_clip_error_carries_the_engine_stderr(project_dir):
+    """The error string must name the real failure, not a generic message."""
+    proj = ProjectConfig.load(project_dir)
+    clips = audio.synthesise_narration(proj, engine=_FakeEngine(fail=True))
+    assert all(c.error and c.error != "failed" for c in clips)
 
 
 def test_synthesise_narration_reports_unavailable_engine(project_dir, monkeypatch):

@@ -330,6 +330,21 @@ def cmd_final(args: argparse.Namespace) -> int:
                 print("  " + ok(f"{c.scene_id}: {c.duration:.1f}s"))
             else:
                 print("  " + warn(f"{c.scene_id}: {c.error}"))
+        # A scene with no narration is padded with SILENCE to keep the timeline
+        # aligned, so a partial TTS failure still produces a video that probes
+        # cleanly, reports audio=True and passes QA — while one scene plays
+        # mute.  Measured on episode-17-gentoo: a voxcpm2-cli abort
+        # (rc=0xC0000409) silenced 03_solution for 10.4 s and the final was
+        # still reported as fine.  Silence is a valid outcome only when the
+        # scene declared no narration to begin with; otherwise it is a failure
+        # the user has to see.
+        silent = [c for c in clips if not c.ok and c.error != "no narration text"]
+        if silent:
+            ids = ", ".join(c.scene_id for c in silent)
+            print(warn(f"{len(silent)} scene(s) have no narration and will be "
+                       f"silent: {ids}"))
+            print(warn("re-run those scenes, or lower --gpu-layers / shorten "
+                       "the line (see AGENTS.md 13)"))
         if good:
             narration_path = audio.build_narration_track(proj, clips)
             if narration_path:

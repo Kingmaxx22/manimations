@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 14 vertical Shorts (`projects/episode-1-gdu` … `episode-14-httpie`).
+catalogue of 17 vertical Shorts (`projects/episode-1-gdu` … `episode-17-gentoo`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -185,7 +185,7 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-14-httpie/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-17-gentoo/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
 tests/                  170 unit tests + 7 real-render end-to-end tests
@@ -232,7 +232,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-14-httpie` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-17-gentoo` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -337,6 +337,19 @@ regression:
   bounds vs the safe area, edge contact, blank frames) and validates resolution,
   fps and duration from the file on disk. Never claim visual inspection beyond
   what this code does.
+- **Pixel QA is not semantic QA — look at the frames too.** `qa.py` proves
+  nothing clips, nothing is blank and nothing touches an edge. It cannot see that
+  a sentence is too small to read, that two colours clash, or that the diagram
+  does not match the narration. **The vision model is available** (see §12), so
+  load `projects/*/build/qa/*_sheet.png` with `vision_analyze` after a preview
+  and read the frames. Both checks are required; neither replaces the other.
+  - Contact sheets are **downscaled** (480 px wide), so small type looks blurrier
+    there than in the render. Before "fixing" a legibility problem, extract a
+    frame at native resolution (`ffmpeg -sseof -0.4 -i scene.mp4 -frames:v 1
+    out.png`) and judge it there — a 19 pt quote read as "blurry" on the sheet and
+    transcribed correctly at native size.
+  - Judge the *last* frame of a scene: earlier frames legitimately show a
+    half-built diagram, and reporting those as defects wastes a render.
 
 ## 8. Testing
 
@@ -390,19 +403,21 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-14-httpie`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-17-gentoo`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
   | Ep | folder (= slug) | s | Ep | folder (= slug) | s |
   | --- | --- | --- | --- | --- | --- |
-  | 1 | `episode-1-gdu` | 35.8 | 8 | `episode-8-wifi` | 45.3 |
-  | 2 | `episode-2-usbipd` | 40.5 | 9 | `episode-9-bat` | 42.3 |
-  | 3 | `episode-3-sortdl` | 40.0 | 10 | `episode-10-zoxide` | 38.9 |
-  | 4 | `episode-4-cloudflared` | 38.3 | 11 | `episode-11-lazygit` | 39.3 |
-  | 5 | `episode-5-ollama` | 39.0 | 12 | `episode-12-tldr` | 42.0 |
-  | 6 | `episode-6-f3` | 41.9 | 13 | `episode-13-fzf` | 40.5 |
-  | 7 | `episode-7-mise` | 43.5 | 14 | `episode-14-httpie` | 42.3 |
+  | 1 | `episode-1-gdu` | 35.8 | 10 | `episode-10-zoxide` | 38.9 |
+  | 2 | `episode-2-usbipd` | 40.5 | 11 | `episode-11-lazygit` | 39.3 |
+  | 3 | `episode-3-sortdl` | 40.0 | 12 | `episode-12-tldr` | 42.0 |
+  | 4 | `episode-4-cloudflared` | 38.3 | 13 | `episode-13-fzf` | 40.5 |
+  | 5 | `episode-5-ollama` | 39.0 | 14 | `episode-14-httpie` | 42.3 |
+  | 6 | `episode-6-f3` | 41.9 | 15 | `episode-15-cache` | 42.6 |
+  | 7 | `episode-7-mise` | 43.5 | 16 | `episode-16-sequoia` | 47.6 |
+  | 8 | `episode-8-wifi` | 45.3 | 17 | `episode-17-gentoo` | 49.7 |
+  | 9 | `episode-9-bat` | 42.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
   `README.md` (engine, verified facts, re-render command), `assets/sfx/*.mp3`
@@ -420,6 +435,11 @@ narration lands in 105–185 wpm for its declared duration.
   edge (left)`. Every other episode's final is `ok: true` with zero problems. The
   episode is finished and published; the same policy as the two CTA
   inconsistencies in §11.1 applies — fix it only if that episode is re-rendered.
+- **A silent scene is a failure, not a cosmetic warning.** `episode-17-gentoo`'s
+  first render shipped `03_solution` as 10.4 s of silence because the TTS aborted
+  on a 167-character line (see §13); the run still reported `audio=True` and
+  `problems=0`. If the narration step names a scene as silent, re-render it.
+  `episode-17-gentoo` is clean after re-running at `--gpu-layers 4`.
 - **The claims audit lives in two places.** Most episodes record it in
   `README.md` (engine, verified facts, re-render command); `episode-1-gdu` and
   `episode-14-httpie` have no `README.md` and carry the audit as a header comment
@@ -455,10 +475,13 @@ works with no extra lookup.
 | 12 | `episode-12-tldr` | "Follow for Episode 13" |
 | 13 | `episode-13-fzf` | "Follow for Episode 14" |
 | 14 | `episode-14-httpie` | "Follow for Episode 15" |
+| 15 | `episode-15-cache` | "Follow for Episode 16" |
+| 16 | `episode-16-sequoia` | "Follow for Episode 17" |
+| 17 | `episode-17-gentoo` | "Follow for Episode 18" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 15 does not exist yet** —
-`episode-14-httpie` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 18 does not exist yet** —
+`episode-17-gentoo` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -467,10 +490,10 @@ published — fix them only when re-rendering the affected episode:
   terminal black magic". That is why the chain *looks* like it starts at 2.
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
   dominates — `usbipd`, `ollama`, `f3`, `mise`, `wifi`, `bat`, `zoxide`,
-  `lazygit`, `tldr`, `fzf`, `httpie` (11 episodes). "Power-User & Developer
-  Shortcuts" survives in `sortdl` and `cloudflared` only (2 episodes), and
-  `episode-1-gdu`'s brief names no series at all. Pick one when the series is
-  next branded.
+  `lazygit`, `tldr`, `fzf`, `httpie`, `sequoia`, `gentoo` (13 episodes).
+  "Power-User & Developer Shortcuts" survives in `sortdl` and `cloudflared` only
+  (2 episodes), and `episode-1-gdu`'s brief names no series at all. Pick one when
+  the series is next branded.
 
 The CTA is spoken, so it is subject to the TTS pronunciation check (§0.3) —
 "Follow for Episode seven" is safe, a bare numeral is not. Every episode since 2
@@ -481,15 +504,19 @@ the on-screen CTA uses the numeral (`"Follow for Episode 15"`).
 
 Be honest about these rather than working around them:
 
-- The **vision model was unavailable** during development, so visual review has
-  been programmatic (safe-area/edge/blank pixel analysis) plus contact sheets in
-  `projects/*/build/qa/`. Automated *semantic* inspection of what a diagram
-  means is **not** implemented. It found the one real defect currently on record:
-  `episode-14-httpie` frame 26 touches the left edge (published; left as-is).
+- **Visual review has two halves, and the vision model is available.** Semantic
+  review is a `vision_analyze` call on the contact sheets in
+  `projects/*/build/qa/` (see §7) — it is how the one legibility defect on record
+  was found: `episode-15-cache`'s Apple quote rendered too small to read at 15 pt
+  and was fixed to 19 pt, which pixel QA could never have caught. Programme
+  review (`pipeline/qa.py`) stays as it was: safe-area bounds, edge contact, blank
+  frames, and resolution/fps/duration from the file on disk. One defect survives
+  as-is in a published cut: `episode-14-httpie` frame 26 touches the left edge.
 - The **music bed** (`--music`) is implemented and now exercised against real
   audio in the end-to-end tests, including the music-only case (no narration),
   which a bug had been silently dropping. **The delivered Shorts never use it** —
-  all 14 carry narration plus placed SFX and no music. The Freesound/Jamendo
+  every episode carries narration plus placed SFX and no music. The
+  Freesound/Jamendo
   download paths are covered by injected-transport tests plus a live check of the
   error paths; **they have not been exercised through the pipeline, though the
   credentials are present** (`.env` sets `FREESOUND_API_KEY`, `JAMENDO_CLIENT_ID`
@@ -503,8 +530,8 @@ Be honest about these rather than working around them:
   voxcpm 2.0.3's `from_pretrained` exposes no dtype or bitsandbytes hook, so it
   needs ~8 GB of VRAM for the 2B model.
 - The **quantized GGUF backend** (`--engine voxcpm-gguf`) *has* been exercised
-  against the real 2B model — see §13 for the measured numbers — and is what all
-  14 delivered episodes use. Its caveats are the llama.cpp-omni dependency, the
+  against the real 2B model — see §13 for the measured numbers — and is what every
+  delivered episode uses. Its caveats are the llama.cpp-omni dependency, the
   fixed layer-count default (8 is unsafe here; the episodes all pass
   `--gpu-layers 6`), and the engine's mangling of tool names: it reads "Ollama"
   as *"a llama"* and "HTTPie" as "HTTP", so names are spelled for the ear in the
@@ -541,18 +568,35 @@ grows:
 | `--gpu-layers` | Result |
 | --- | --- |
 | 0 (CPU) | works, RTF ~10.7 |
-| 6 | **what every delivered episode uses** — works at every text length tried |
+| 4 | **safe for long lines** — verified at 167 characters, where 6 aborts |
+| 6 | what every episode up to 16 uses; safe up to **166 characters**, aborts at 167 |
 | 8 (the code's `DEFAULT_GPU_LAYERS`) | works at *scene* length, but **OOMs when one call carries the whole project's narration** (~700 chars) |
 | 10 | works for short text |
 | 12 | OOM on project-length narration |
 | 16 / all | OOM immediately |
 
-The binding constraint is not the model but the **length of a single
-invocation**: `failed to reserve AudioVAE decode graph memory` is the failure
-mode, and the decode graph grows with the audio generated. The default of 8 is
-therefore wrong for this box — pass `--gpu-layers 6` on anything longer than a
-scene. It is a hard OOM, not a slowdown, so the headroom is worth the small speed
-cost.
+Two different limits live in this table, and they fail in different ways:
+
+- **Layer count vs. total audio** — `failed to reserve AudioVAE decode graph
+  memory`, a clean OOM, when one invocation is asked to speak too much.
+- **Layer count vs. single-line length** — a **hard abort**, not an OOM:
+  `voxcpm2-cli` dies with `rc=3221226505` (`0xC0000409`,
+  `STATUS_STACK_BUFFER_OVERRUN`). Measured on `episode-17-gentoo`, whose
+  `03_solution` line is 167 characters: at 6 layers it aborts, at 4 it succeeds,
+  and 123 characters succeeds at 6 while 166 succeeds and 167 does not. The
+  boundary is that tight, and it is per **line**, not per project.
+
+So the rule is: **keep any single narration line ≤ ~150 characters, or drop to
+`--gpu-layers 4`.** Every episode up to 16 had a longest line of ≤152, which is
+why 6 looked universally safe. Raising the layer count buys speed and costs
+headroom; the default of 8 is wrong for this box either way.
+
+A failed synthesis is **not** allowed to pass silently: the pipeline pads the
+scene with silence to keep the timeline aligned, so a partial failure still
+produces a video that probes cleanly and reports `audio=True`. The CLI now names
+the silent scenes explicitly, and
+`tests/test_tts_engines.py::test_partial_narration_failure_is_surfaced_not_silently_padded`
+covers it. If a scene reports silence, re-run it — do not ship it.
 
 Tuning knobs: `--gpu-layers N`, or the env vars `MANIMATIONS_VOXCPM_BIN`,
 `MANIMATIONS_VOXCPM_BASE_LM`, `MANIMATIONS_VOXCPM_ACOUSTIC`,
