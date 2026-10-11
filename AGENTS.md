@@ -365,10 +365,12 @@ narration lands in 105–185 wpm for its declared duration.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
   `episode-1-gdu` (pocket-tts), `episode-2-usbipd`, `episode-3-sortdl`,
   `episode-4-cloudflared`, `episode-5-ollama`, `episode-6-f3`,
-  `episode-7-mise`, `episode-8-wifi`, `episode-9-bat` (all voxcpm-gguf).
+  `episode-7-mise`, `episode-8-wifi`, `episode-9-bat`, `episode-10-zoxide`,
+  `episode-11-lazygit`, `episode-12-tldr` (all voxcpm-gguf).
   `episode-2-usbipd` is 1080×1920 @ 30fps, 40.5 s; `episode-5-ollama` is
   38.9 s; `episode-7-mise` is 43.5 s; `episode-8-wifi` is 45.3 s;
-  `episode-9-bat` is 42.3 s.
+  `episode-9-bat` is 42.3 s; `episode-10-zoxide` is 38.9 s;
+  `episode-11-lazygit` is 39.3 s; `episode-12-tldr` is 42.0 s.
 - `projects/ipv6` and `projects/dns` are standalone explainers, **not** part of
   the numbered series. `dns` is still the generated stubs.
 - 166 unit tests + 7 end-to-end tests passing.
@@ -397,6 +399,9 @@ works with no extra lookup.
 | 7 | `episode-7-mise` | "Follow for Episode 8" |
 | 8 | `episode-8-wifi` | "Follow for Episode 9" |
 | 9 | `episode-9-bat` | "Follow for Episode 10" |
+| 10 | `episode-10-zoxide` | "Follow for Episode 11" |
+| 11 | `episode-11-lazygit` | "Follow for Episode 12" |
+| 12 | `episode-12-tldr` | "Follow for Episode 13" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
 its `slug:`, and have its CTA say `N+2`.
