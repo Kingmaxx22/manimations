@@ -572,7 +572,7 @@ def build_srt(project: ProjectConfig, clips: list[NarrationClip] | None = None,
     for spec in project.scenes:
         dur = max(spec.duration, 0.5)
         start, end = t, t + dur
-        text = spec.narration.strip()
+        text = spec.subtitle_source
         if text:
             entries.append(f"{idx}\n{_ts(start)} --> {_ts(end)}\n{_wrap(text)}\n")
             idx += 1

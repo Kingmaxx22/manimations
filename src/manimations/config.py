@@ -55,6 +55,18 @@ class SceneSpec:
     accent: str = "cyan"
     visuals: list[str] = field(default_factory=list)
     notes: str = ""
+    #: What the subtitles show, when it must differ from what the voice says.
+    #: A TTS engine reads a spelling, so a product name sometimes has to be
+    #: respelled phonetically to be pronounced correctly ("mise" -> "meez").
+    #: That respelling must never reach the screen — a viewer would read a
+    #: misspelled name.  Set this to the real spelling when they differ; empty
+    #: means the subtitles use ``narration`` verbatim.
+    subtitle_text: str = ""
+
+    @property
+    def subtitle_source(self) -> str:
+        """The text a subtitle cue should carry."""
+        return (self.subtitle_text or self.narration).strip()
 
     # --- derived / validation -------------------------------------------
     @property
@@ -117,6 +129,7 @@ class SceneSpec:
             accent=str(data.get("accent", "cyan")),
             visuals=list(data.get("visuals", []) or []),
             notes=str(data.get("notes", "")),
+            subtitle_text=str(data.get("subtitle_text", "") or ""),
         )
 
 

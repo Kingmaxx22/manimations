@@ -97,3 +97,33 @@ def test_build_srt_uses_declared_scene_durations(tmp_path, project_dir):
     # scene 1 is 12s, scene 2 is 12s -> second cue starts at 12s
     assert "00:00:00,000 --> 00:00:12,000" in text
     assert "00:00:12,000 --> 00:00:24,000" in text
+
+
+def test_build_srt_prefers_subtitle_text_over_narration(tmp_path, project_dir):
+    """A phonetic respelling spoken for the TTS engine must not reach the screen.
+
+    A product name is sometimes respelled so the voice pronounces it correctly
+    ("mise" -> "meez").  The subtitles are read, not heard, so they have to carry
+    the real spelling or the video shows a misspelled name.
+    """
+    proj = ProjectConfig.load(project_dir)
+    proj.scenes[0].narration = "One tool replaces them all. meez handles Node."
+    proj.scenes[0].subtitle_text = "One tool replaces them all. mise handles Node."
+
+    srt = build_srt(proj, out_path=tmp_path / "s.srt")
+    text = srt.read_text(encoding="utf-8")
+    # _wrap() breaks cues across lines, so compare with whitespace normalised.
+    flat = " ".join(text.split())
+
+    assert "mise handles Node" in flat      # the real spelling is shown
+    assert "meez" not in flat               # the respelling never is
+
+
+def test_build_srt_falls_back_to_narration_without_subtitle_text(tmp_path, project_dir):
+    """The override is opt-in; an untouched brief is unaffected."""
+    proj = ProjectConfig.load(project_dir)
+    assert not proj.scenes[0].subtitle_text
+    srt = build_srt(proj, out_path=tmp_path / "s.srt")
+    flat = " ".join(srt.read_text(encoding="utf-8").split())
+    assert proj.scenes[0].narration.split(".")[0] in flat
+
