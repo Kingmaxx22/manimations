@@ -6,8 +6,8 @@ Guidance for AI agents and contributors working in this repository.
 Manim Community Edition. You give it a topic and a structured scene brief, and it
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
-library, a design system, a render/repair/assemble pipeline, and a complete
-example project (`projects/ipv6`).
+library, a design system, a render/repair/assemble pipeline, and a working
+catalogue of 14 vertical Shorts (`projects/episode-1-gdu` … `episode-14-httpie`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -93,8 +93,9 @@ settled it in one command.
 ### 0.4 Use the graphify graph to understand this codebase.
 
 `graphify-out/` holds a knowledge graph of this repo — 1013 nodes, 2000 edges,
-70 **named** communities (`ExplainerScene core`, `Layout and safe areas`,
-`Narration, TTS and subtitles`, …). Query it instead of grepping blind:
+70 communities, of which **40 carry a real name** (`ExplainerScene core`,
+`Layout and safe areas`, `Narration, TTS and subtitles`, …) and 30 are generic
+`Community NN`. Query it instead of grepping blind:
 
 ```bash
 graphify query "how does a scene pad to its declared duration" --budget 600
@@ -112,6 +113,12 @@ graphify god-nodes --top 12            # the architectural hubs
 - The graph's god nodes are the real architecture: `ProjectConfig` (87 edges) and
   `ExplainerScene` (51) are the only two bridges across the codebase, and there
   are **no import cycles** — the §2 rule holds.
+- **The graph goes stale.** The copy in `graphify-out/` was built at commit
+  `fc3f47d` (3 commits behind `HEAD`), so it still indexes the pre-rename paths
+  `projects/gdu` and `projects/usbipd` (today `episode-1-gdu` and
+  `episode-2-usbipd`) and knows nothing about episodes 3–14, which are
+  git-ignored. Treat project-side answers as history; `graphify update .` before
+  trusting them.
 
 ---
 
@@ -129,6 +136,7 @@ graphify god-nodes --top 12            # the architectural hubs
 - **`README.md`** is the user-facing manual (setup, commands, guarantees).
 - **`docs/writing-a-scene.md`** is the guide for the part a human/agent authors:
   turning narration into a diagram.
+- **`projects/old_ignore/`** holds the archived `ipv6` and `dns` explainers (§3).
 - **Never edit `projects/*/build/`** — it is generated output (git-ignored).
 
 ## 2. The one architectural rule
@@ -176,14 +184,32 @@ src/manimations/
     └── assets.py       free asset search/download (Freesound SFX, Jamendo music)
 
 projects/
-├── ipv6/               the finished example (8 scenes, both orientations)
-├── dns/                a second example scaffolded from examples/dns_brief.yaml
-└── _template/          copyable starter for a new topic
+├── _template/          copyable starter for a new topic (3-scene skeleton)
+├── episode-1-gdu/ … episode-14-httpie/   the Shorts series (see §11.1)
+└── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
-tests/                  166 unit tests + 7 real-render end-to-end tests
+tests/                  170 unit tests + 7 real-render end-to-end tests
 docs/ examples/         the scene-authoring guide and a sample brief
 graphify-out/           knowledge graph of this repo (git-ignored; see §0.4)
+build/                  llama.cpp-omni, the VoxCPM GGUFs, scratch, QA (git-ignored)
 ```
+
+**`projects/ipv6/` and `projects/dns/` are archived, not current.** They were
+moved to `projects/old_ignore/` (git-ignored) so that `projects/` holds only the
+Shorts series; the tracked copies were deleted, so `git status` reports five
+deletions under `projects/` until that is committed. Both still render and probe
+cleanly from their archived location — `projects/old_ignore/ipv6/build/ipv6_final.mp4`
+is 1080×1920 @ 30 fps, 119.4 s, QA `ok: true` — but no live project uses those
+paths any more. Everything below that shows `manimations … ipv6` as its example
+works only if you substitute a live slug or restore the folder.
+
+**Tracked vs ignored is uneven inside `projects/`,** because the `projects/`
+ignore rule landed after the first episodes were committed — an ignore rule does
+not untrack anything. Today `git ls-files projects/` returns `_template/`,
+`episode-1-gdu/` (minus its `README.md`) and `episode-2-usbipd/`, and nothing
+else; **episodes 3–14 are entirely local and invisible to `git status`**. So
+`git add projects/…` silently does nothing for them — publish deliberately with
+`git add -f projects/<slug>` if that is ever wanted.
 
 ## 4. Environment and commands
 
@@ -195,15 +221,18 @@ uv sync --extra tts                  # install (omit the extra to skip narration
 uv sync --extra voxcpm               # optional: VoxCPM PyTorch backend (needs ~8 GB VRAM)
                                      #   for a 4 GB GPU use the voxcpm-gguf engine instead
 
-uv run manimations validate ipv6     # pre-flight: brief, deps, fonts, classes
-uv run manimations preview  ipv6     # 480p render + pixel QA + contact sheets
-uv run manimations final    ipv6 --voiceover --fit-narration --subtitles
-uv run manimations qa --project ipv6 # frame-level report on rendered scenes
+uv run manimations validate <slug>   # pre-flight: brief, deps, fonts, classes
+uv run manimations preview  <slug>   # 480p render + pixel QA + contact sheets
+uv run manimations final    <slug> --voiceover --fit-narration --subtitles
+uv run manimations qa --project <slug>   # frame-level report on rendered scenes
 uv run manimations new myslug --topic "My Topic"
 
 uv run pytest -m "not slow"          # unit tests (fast)
 uv run pytest                        # adds tests that really render + assemble
 ```
+
+`<slug>` is a live folder under `projects/` — today that means one of the
+`episode-*` series, e.g. `episode-14-httpie` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -312,7 +341,7 @@ regression:
 ## 8. Testing
 
 ```bash
-uv run pytest -m "not slow"    # 166 unit tests: config, theme, components,
+uv run pytest -m "not slow"    # 170 unit tests: config, theme, components,
                                # layout, orientation, narration fitting, pipeline
 uv run pytest                   # + 7 e2e tests that render with Manim, assemble
                                # with FFmpeg, and assert on the real output
@@ -359,23 +388,45 @@ narration lands in 105–185 wpm for its declared duration.
 
 ## 11. Current state
 
-- Framework ~5.8k lines across `src/manimations/`.
-- `projects/ipv6`: 8 scenes, verified clean in both orientations; final render
-  1080×1920 @ 30fps, 119.4 s, with narration and subtitles.
+- Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd`, `episode-3-sortdl`,
-  `episode-4-cloudflared`, `episode-5-ollama`, `episode-6-f3`,
-  `episode-7-mise`, `episode-8-wifi`, `episode-9-bat`, `episode-10-zoxide`,
-  `episode-11-lazygit`, `episode-12-tldr` (all voxcpm-gguf).
-  `episode-2-usbipd` is 1080×1920 @ 30fps, 40.5 s; `episode-5-ollama` is
-  38.9 s; `episode-7-mise` is 43.5 s; `episode-8-wifi` is 45.3 s;
-  `episode-9-bat` is 42.3 s; `episode-10-zoxide` is 38.9 s;
-  `episode-11-lazygit` is 39.3 s; `episode-12-tldr` is 42.0 s.
-- `projects/ipv6` and `projects/dns` are standalone explainers, **not** part of
-  the numbered series. `dns` is still the generated stubs.
-- 166 unit tests + 7 end-to-end tests passing.
-- `graphify-out/` holds a knowledge graph of the repo (1013 nodes, 70 labelled
-  communities) built with `graphify extract . --code-only`. Query it with
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-14-httpie`
+  (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
+  promoted; measured durations:
+
+  | Ep | folder (= slug) | s | Ep | folder (= slug) | s |
+  | --- | --- | --- | --- | --- | --- |
+  | 1 | `episode-1-gdu` | 35.8 | 8 | `episode-8-wifi` | 45.3 |
+  | 2 | `episode-2-usbipd` | 40.5 | 9 | `episode-9-bat` | 42.3 |
+  | 3 | `episode-3-sortdl` | 40.0 | 10 | `episode-10-zoxide` | 38.9 |
+  | 4 | `episode-4-cloudflared` | 38.3 | 11 | `episode-11-lazygit` | 39.3 |
+  | 5 | `episode-5-ollama` | 39.0 | 12 | `episode-12-tldr` | 42.0 |
+  | 6 | `episode-6-f3` | 41.9 | 13 | `episode-13-fzf` | 40.5 |
+  | 7 | `episode-7-mise` | 43.5 | 14 | `episode-14-httpie` | 42.3 |
+
+- **Every episode carries the same four-part scaffolding** beyond the framework:
+  `README.md` (engine, verified facts, re-render command), `assets/sfx/*.mp3`
+  (four Freesound CC0 files + `credits.json`/`credits.txt`), `mix_sfx.py` (places
+  each SFX at a scene boundary) and `verify_sfx.py`. The audit content is always
+  present; only its home varies (see the two exceptions below).
+- `projects/ipv6` and `projects/dns` are archived under `projects/old_ignore/`
+  and are **not** part of the numbered series. `dns` is still the generated stubs
+  (five `TODO: replace with the real visual explanation` bodies).
+- **170 unit tests + 7 end-to-end tests passing** (177 collected; the e2e six in
+  `tests/test_e2e.py` plus one header test are `-m slow`). Last full unit run:
+  green.
+- **One edge-contact frame is left as-is in a published cut:**
+  `episode-14-httpie`'s QA is `ok: false` with `frame 26: content touches frame
+  edge (left)`. Every other episode's final is `ok: true` with zero problems. The
+  episode is finished and published; the same policy as the two CTA
+  inconsistencies in §11.1 applies — fix it only if that episode is re-rendered.
+- **The claims audit lives in two places.** Most episodes record it in
+  `README.md` (engine, verified facts, re-render command); `episode-1-gdu` and
+  `episode-14-httpie` have no `README.md` and carry the audit as a header comment
+  in `project.yaml` instead. Episodes 1–4 also have no `verify_sfx.py`.
+- `graphify-out/` holds a knowledge graph of the repo (1013 nodes, 2000 edges,
+  70 communities — 40 named, 30 generic) built with
+  `graphify extract . --code-only` at commit `fc3f47d`. Query it with
   `graphify query "<question>"` or read `graphify-out/GRAPH_REPORT.md` before
   grepping. Rebuild after code changes with `graphify update .` (no API key).
 
@@ -402,21 +453,29 @@ works with no extra lookup.
 | 10 | `episode-10-zoxide` | "Follow for Episode 11" |
 | 11 | `episode-11-lazygit` | "Follow for Episode 12" |
 | 12 | `episode-12-tldr` | "Follow for Episode 13" |
+| 13 | `episode-13-fzf` | "Follow for Episode 14" |
+| 14 | `episode-14-httpie` | "Follow for Episode 15" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`.
+its `slug:`, and have its CTA say `N+2`. **Episode 15 does not exist yet** —
+`episode-14-httpie` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
 
 - **`episode-1-gdu` never numbered itself.** Its CTA is "Follow for more /
   terminal black magic". That is why the chain *looks* like it starts at 2.
-- **The series has two names in the files:** "Developer & Power-User Black Magic"
-  (`gdu`, `usbipd`, `ollama`, `f3`) and "Power-User & Developer Shortcuts"
-  (`sortdl`, `cloudflared`). Pick one when the series is next branded.
+- **The series has two names in the files.** "Developer & Power-User Black Magic"
+  dominates — `usbipd`, `ollama`, `f3`, `mise`, `wifi`, `bat`, `zoxide`,
+  `lazygit`, `tldr`, `fzf`, `httpie` (11 episodes). "Power-User & Developer
+  Shortcuts" survives in `sortdl` and `cloudflared` only (2 episodes), and
+  `episode-1-gdu`'s brief names no series at all. Pick one when the series is
+  next branded.
 
 The CTA is spoken, so it is subject to the TTS pronunciation check (§0.3) —
-"Follow for Episode seven" is safe, a bare numeral is not.
+"Follow for Episode seven" is safe, a bare numeral is not. Every episode since 2
+follows this: the narration spells the word (`"Follow for Episode fifteen."`) and
+the on-screen CTA uses the numeral (`"Follow for Episode 15"`).
 
 ## 12. Known gaps
 
@@ -425,13 +484,17 @@ Be honest about these rather than working around them:
 - The **vision model was unavailable** during development, so visual review has
   been programmatic (safe-area/edge/blank pixel analysis) plus contact sheets in
   `projects/*/build/qa/`. Automated *semantic* inspection of what a diagram
-  means is **not** implemented.
+  means is **not** implemented. It found the one real defect currently on record:
+  `episode-14-httpie` frame 26 touches the left edge (published; left as-is).
 - The **music bed** (`--music`) is implemented and now exercised against real
   audio in the end-to-end tests, including the music-only case (no narration),
-  which a bug had been silently dropping. The Freesound/Jamendo download paths
-  are covered by injected-transport tests plus a live check of the error paths;
-  they have **not** been run against a real API key, since none is configured
-  here.
+  which a bug had been silently dropping. **The delivered Shorts never use it** —
+  all 14 carry narration plus placed SFX and no music. The Freesound/Jamendo
+  download paths are covered by injected-transport tests plus a live check of the
+  error paths; **they have not been exercised through the pipeline, though the
+  credentials are present** (`.env` sets `FREESOUND_API_KEY`, `JAMENDO_CLIENT_ID`
+  and `JAMENDO_SECRET`). The SFX that shipped came in through the asset client
+  for the CC0 sounds (see each episode's `credits.json`).
 - pocket-tts needs network access **once** to fetch model weights; offline runs
   will report narration as unavailable rather than failing.
 - The **PyTorch VoxCPM backend** (`--engine voxcpm`) is covered by tests against a
@@ -440,8 +503,12 @@ Be honest about these rather than working around them:
   voxcpm 2.0.3's `from_pretrained` exposes no dtype or bitsandbytes hook, so it
   needs ~8 GB of VRAM for the 2B model.
 - The **quantized GGUF backend** (`--engine voxcpm-gguf`) *has* been exercised
-  against the real 2B model — see §13 for the measured numbers. Its caveats are
-  the llama.cpp-omni dependency and the fixed layer-count default.
+  against the real 2B model — see §13 for the measured numbers — and is what all
+  14 delivered episodes use. Its caveats are the llama.cpp-omni dependency, the
+  fixed layer-count default (8 is unsafe here; the episodes all pass
+  `--gpu-layers 6`), and the engine's mangling of tool names: it reads "Ollama"
+  as *"a llama"* and "HTTPie" as "HTTP", so names are spelled for the ear in the
+  narration and kept whole in `subtitle_text` / on-screen text.
 - llama.cpp-omni is **Linux-first**: its Windows story is build-from-source (the
   only prebuilt binaries are the Comni GUI, which has no headless CLI). The
   Windows build is verified here, but a Linux/macOS build may behave differently.
@@ -474,10 +541,18 @@ grows:
 | `--gpu-layers` | Result |
 | --- | --- |
 | 0 (CPU) | works, RTF ~10.7 |
-| 8 (default) | works, RTF ~2.4–4.8 |
+| 6 | **what every delivered episode uses** — works at every text length tried |
+| 8 (the code's `DEFAULT_GPU_LAYERS`) | works at *scene* length, but **OOMs when one call carries the whole project's narration** (~700 chars) |
 | 10 | works for short text |
 | 12 | OOM on project-length narration |
 | 16 / all | OOM immediately |
+
+The binding constraint is not the model but the **length of a single
+invocation**: `failed to reserve AudioVAE decode graph memory` is the failure
+mode, and the decode graph grows with the audio generated. The default of 8 is
+therefore wrong for this box — pass `--gpu-layers 6` on anything longer than a
+scene. It is a hard OOM, not a slowdown, so the headroom is worth the small speed
+cost.
 
 Tuning knobs: `--gpu-layers N`, or the env vars `MANIMATIONS_VOXCPM_BIN`,
 `MANIMATIONS_VOXCPM_BASE_LM`, `MANIMATIONS_VOXCPM_ACOUSTIC`,

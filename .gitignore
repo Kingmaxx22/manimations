@@ -42,3 +42,4 @@ graphify-out/
 # `git add -f projects/<slug>` when it is worth sharing.
 projects/
 
+projects/old_ignore/
