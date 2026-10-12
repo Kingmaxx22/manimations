@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 17 vertical Shorts (`projects/episode-1-gdu` … `episode-17-gentoo`).
+catalogue of 20 vertical Shorts (`projects/episode-1-gdu` … `episode-20-fd`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -185,10 +185,10 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-17-gentoo/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-20-fd/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
-tests/                  170 unit tests + 7 real-render end-to-end tests
+tests/                  172 unit tests + 7 real-render end-to-end tests
 docs/ examples/         the scene-authoring guide and a sample brief
 graphify-out/           knowledge graph of this repo (git-ignored; see §0.4)
 build/                  llama.cpp-omni, the VoxCPM GGUFs, scratch, QA (git-ignored)
@@ -232,7 +232,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-17-gentoo` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-20-fd` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -350,11 +350,24 @@ regression:
     transcribed correctly at native size.
   - Judge the *last* frame of a scene: earlier frames legitimately show a
     half-built diagram, and reporting those as defects wastes a render.
+- **Add a panel before the content it holds.** A `surfaces.panel(...)` has an
+  opaque fill, so fading it in *after* the text it contains paints that text out.
+  The text animates correctly for a moment and is then erased, so the final frame
+  looks like the text was never written. Hit on `episode-19-ripgrep` scenes 01
+  and 03: the `$ grep` and `$ rg` command lines were missing from every final
+  frame while the panel and its rows were fine. Order the plays as
+  `FadeIn(panel)` → `Write(command)` → rows.
+- **`arrange(aligned_edge=...)` re-aligns, so indent after arranging.** Applying
+  `shift(RIGHT * depth)` to rows *before* `VGroup(*rows).arrange(DOWN,
+  aligned_edge=LEFT)` silently flattens the indent — every row is pulled back to
+  one left edge. Hit on `episode-18-eza`'s tree, which rendered as a flat list.
+  Arrange first, then shift; verify by measuring `row.get_left()[0]` rather than
+  trusting a downscaled contact sheet.
 
 ## 8. Testing
 
 ```bash
-uv run pytest -m "not slow"    # 170 unit tests: config, theme, components,
+uv run pytest -m "not slow"    # 172 unit tests: config, theme, components,
                                # layout, orientation, narration fitting, pipeline
 uv run pytest                   # + 7 e2e tests that render with Manim, assemble
                                # with FFmpeg, and assert on the real output
@@ -403,21 +416,22 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-17-gentoo`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-20-fd`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
   | Ep | folder (= slug) | s | Ep | folder (= slug) | s |
   | --- | --- | --- | --- | --- | --- |
-  | 1 | `episode-1-gdu` | 35.8 | 10 | `episode-10-zoxide` | 38.9 |
-  | 2 | `episode-2-usbipd` | 40.5 | 11 | `episode-11-lazygit` | 39.3 |
-  | 3 | `episode-3-sortdl` | 40.0 | 12 | `episode-12-tldr` | 42.0 |
-  | 4 | `episode-4-cloudflared` | 38.3 | 13 | `episode-13-fzf` | 40.5 |
-  | 5 | `episode-5-ollama` | 39.0 | 14 | `episode-14-httpie` | 42.3 |
-  | 6 | `episode-6-f3` | 41.9 | 15 | `episode-15-cache` | 42.6 |
-  | 7 | `episode-7-mise` | 43.5 | 16 | `episode-16-sequoia` | 47.6 |
-  | 8 | `episode-8-wifi` | 45.3 | 17 | `episode-17-gentoo` | 49.7 |
-  | 9 | `episode-9-bat` | 42.3 | | | |
+  | 1 | `episode-1-gdu` | 35.8 | 11 | `episode-11-lazygit` | 39.3 |
+  | 2 | `episode-2-usbipd` | 40.5 | 12 | `episode-12-tldr` | 42.0 |
+  | 3 | `episode-3-sortdl` | 40.0 | 13 | `episode-13-fzf` | 40.5 |
+  | 4 | `episode-4-cloudflared` | 38.3 | 14 | `episode-14-httpie` | 42.3 |
+  | 5 | `episode-5-ollama` | 39.0 | 15 | `episode-15-cache` | 42.6 |
+  | 6 | `episode-6-f3` | 41.9 | 16 | `episode-16-sequoia` | 47.6 |
+  | 7 | `episode-7-mise` | 43.5 | 17 | `episode-17-gentoo` | 49.7 |
+  | 8 | `episode-8-wifi` | 45.3 | 18 | `episode-18-eza` | 44.8 |
+  | 9 | `episode-9-bat` | 42.3 | 19 | `episode-19-ripgrep` | 40.6 |
+  | 10 | `episode-10-zoxide` | 38.9 | 20 | `episode-20-fd` | 42.9 |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
   `README.md` (engine, verified facts, re-render command), `assets/sfx/*.mp3`
@@ -427,7 +441,7 @@ narration lands in 105–185 wpm for its declared duration.
 - `projects/ipv6` and `projects/dns` are archived under `projects/old_ignore/`
   and are **not** part of the numbered series. `dns` is still the generated stubs
   (five `TODO: replace with the real visual explanation` bodies).
-- **170 unit tests + 7 end-to-end tests passing** (177 collected; the e2e six in
+- **172 unit tests + 7 end-to-end tests passing** (179 collected; the e2e six in
   `tests/test_e2e.py` plus one header test are `-m slow`). Last full unit run:
   green.
 - **One edge-contact frame is left as-is in a published cut:**
@@ -478,10 +492,13 @@ works with no extra lookup.
 | 15 | `episode-15-cache` | "Follow for Episode 16" |
 | 16 | `episode-16-sequoia` | "Follow for Episode 17" |
 | 17 | `episode-17-gentoo` | "Follow for Episode 18" |
+| 18 | `episode-18-eza` | "Follow for Episode 19" |
+| 19 | `episode-19-ripgrep` | "Follow for Episode 20" |
+| 20 | `episode-20-fd` | "Follow for Episode 21" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 18 does not exist yet** —
-`episode-17-gentoo` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 21 does not exist yet** —
+`episode-20-fd` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -490,10 +507,10 @@ published — fix them only when re-rendering the affected episode:
   terminal black magic". That is why the chain *looks* like it starts at 2.
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
   dominates — `usbipd`, `ollama`, `f3`, `mise`, `wifi`, `bat`, `zoxide`,
-  `lazygit`, `tldr`, `fzf`, `httpie`, `sequoia`, `gentoo` (13 episodes).
-  "Power-User & Developer Shortcuts" survives in `sortdl` and `cloudflared` only
-  (2 episodes), and `episode-1-gdu`'s brief names no series at all. Pick one when
-  the series is next branded.
+  `lazygit`, `tldr`, `fzf`, `httpie`, `sequoia`, `gentoo`, `eza`, `ripgrep`,
+  `fd` (16 episodes). "Power-User & Developer Shortcuts" survives in `sortdl`
+  and `cloudflared` only (2 episodes), and `episode-1-gdu`'s brief names no
+  series at all. Pick one when the series is next branded.
 
 The CTA is spoken, so it is subject to the TTS pronunciation check (§0.3) —
 "Follow for Episode seven" is safe, a bare numeral is not. Every episode since 2
@@ -597,6 +614,27 @@ produces a video that probes cleanly and reports `audio=True`. The CLI now names
 the silent scenes explicitly, and
 `tests/test_tts_engines.py::test_partial_narration_failure_is_surfaced_not_silently_padded`
 covers it. If a scene reports silence, re-run it — do not ship it.
+
+**Pace outliers run in both directions, and only a probe finds the trigger.** The
+seed is fixed at 42, so a re-run reproduces the identical clip byte-for-byte and
+a retry can never fix a bad line — the fix is always wording.
+
+- *Rushing* (three earlier episodes): a scene lands at **275–300 wpm** while its
+  siblings sit at 170–200. Triggers found so far: the contrastive "X, not Y, so
+  Z" construction, and a colon mid-line.
+- *Dwelling* (`episode-20-fd` scene 04): the opposite failure — **93 wpm** and
+  double the length, so a ~9 s scene renders at 16.8 s. Trigger: spoken flag
+  names ("dash E", "dash H") make the engine hang on the letters. Rewriting the
+  line to name the *capability* instead of the flag restored 170 wpm.
+
+Measure per-scene wpm from the rendered clips before trusting a render, and
+synthesise the variants in one probe script (one process, several lines) rather
+than re-rendering per attempt.
+
+**`--fit-narration` writes a bad pace into the brief.** It persists the measured
+duration, so a dwelling scene silently becomes `duration: 16.8` in `project.yaml`
+— the defect then looks like the intended timing on every later render. Reset the
+declared duration when you fix the line.
 
 Tuning knobs: `--gpu-layers N`, or the env vars `MANIMATIONS_VOXCPM_BIN`,
 `MANIMATIONS_VOXCPM_BASE_LM`, `MANIMATIONS_VOXCPM_ACOUSTIC`,
