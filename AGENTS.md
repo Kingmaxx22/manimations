@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 20 vertical Shorts (`projects/episode-1-gdu` … `episode-20-fd`).
+catalogue of 21 vertical Shorts (`projects/episode-1-gdu` … `episode-21-btop`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -89,6 +89,15 @@ Worked example, and why this rule exists: the model size for
 rendered on screen. Reading `ollama.com/library/llama3.1` live showed the vendor
 lists **4.9GB**. The wrong number was in a delivered video; the vendor page
 settled it in one command.
+
+**Do not announce a verdict before you have read the source.** A draft claim can
+look wrong and be right, and saying so early costs the user's trust in the ones
+you get right. On `episode-21-btop` the claim "btop lacks real-time GPU metrics"
+was flagged to the user as probably false — btop in fact monitors NVIDIA, AMD
+and Intel GPUs. The draft was still wrong, but for the opposite reason: it
+presented a feature that is *conditional on how btop was built* as though it were
+unconditional. Read first, then say what the vendor says; "I have not verified
+this yet" is a complete answer in the meantime.
 
 ### 0.4 Use the graphify graph to understand this codebase.
 
@@ -185,7 +194,7 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-20-fd/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-21-btop/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
 tests/                  172 unit tests + 7 real-render end-to-end tests
@@ -232,7 +241,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-20-fd` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-21-btop` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -416,22 +425,23 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-20-fd`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-21-btop`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
   | Ep | folder (= slug) | s | Ep | folder (= slug) | s |
   | --- | --- | --- | --- | --- | --- |
-  | 1 | `episode-1-gdu` | 35.8 | 11 | `episode-11-lazygit` | 39.3 |
-  | 2 | `episode-2-usbipd` | 40.5 | 12 | `episode-12-tldr` | 42.0 |
-  | 3 | `episode-3-sortdl` | 40.0 | 13 | `episode-13-fzf` | 40.5 |
-  | 4 | `episode-4-cloudflared` | 38.3 | 14 | `episode-14-httpie` | 42.3 |
-  | 5 | `episode-5-ollama` | 39.0 | 15 | `episode-15-cache` | 42.6 |
-  | 6 | `episode-6-f3` | 41.9 | 16 | `episode-16-sequoia` | 47.6 |
-  | 7 | `episode-7-mise` | 43.5 | 17 | `episode-17-gentoo` | 49.7 |
-  | 8 | `episode-8-wifi` | 45.3 | 18 | `episode-18-eza` | 44.8 |
-  | 9 | `episode-9-bat` | 42.3 | 19 | `episode-19-ripgrep` | 40.6 |
-  | 10 | `episode-10-zoxide` | 38.9 | 20 | `episode-20-fd` | 42.9 |
+  | 1 | `episode-1-gdu` | 35.8 | 12 | `episode-12-tldr` | 42.0 |
+  | 2 | `episode-2-usbipd` | 40.5 | 13 | `episode-13-fzf` | 40.5 |
+  | 3 | `episode-3-sortdl` | 40.0 | 14 | `episode-14-httpie` | 42.3 |
+  | 4 | `episode-4-cloudflared` | 38.3 | 15 | `episode-15-cache` | 42.6 |
+  | 5 | `episode-5-ollama` | 39.0 | 16 | `episode-16-sequoia` | 47.6 |
+  | 6 | `episode-6-f3` | 41.9 | 17 | `episode-17-gentoo` | 49.7 |
+  | 7 | `episode-7-mise` | 43.5 | 18 | `episode-18-eza` | 44.8 |
+  | 8 | `episode-8-wifi` | 45.3 | 19 | `episode-19-ripgrep` | 40.6 |
+  | 9 | `episode-9-bat` | 42.3 | 20 | `episode-20-fd` | 42.9 |
+  | 10 | `episode-10-zoxide` | 38.9 | 21 | `episode-21-btop` | 41.9 |
+  | 11 | `episode-11-lazygit` | 39.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
   `README.md` (engine, verified facts, re-render command), `assets/sfx/*.mp3`
@@ -495,10 +505,11 @@ works with no extra lookup.
 | 18 | `episode-18-eza` | "Follow for Episode 19" |
 | 19 | `episode-19-ripgrep` | "Follow for Episode 20" |
 | 20 | `episode-20-fd` | "Follow for Episode 21" |
+| 21 | `episode-21-btop` | "Follow for Episode 22" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 21 does not exist yet** —
-`episode-20-fd` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 22 does not exist yet** —
+`episode-21-btop` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -508,7 +519,7 @@ published — fix them only when re-rendering the affected episode:
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
   dominates — `usbipd`, `ollama`, `f3`, `mise`, `wifi`, `bat`, `zoxide`,
   `lazygit`, `tldr`, `fzf`, `httpie`, `sequoia`, `gentoo`, `eza`, `ripgrep`,
-  `fd` (16 episodes). "Power-User & Developer Shortcuts" survives in `sortdl`
+  `fd`, `btop` (17 episodes). "Power-User & Developer Shortcuts" survives in `sortdl`
   and `cloudflared` only (2 episodes), and `episode-1-gdu`'s brief names no
   series at all. Pick one when the series is next branded.
 
@@ -622,14 +633,23 @@ a retry can never fix a bad line — the fix is always wording.
 - *Rushing* (three earlier episodes): a scene lands at **275–300 wpm** while its
   siblings sit at 170–200. Triggers found so far: the contrastive "X, not Y, so
   Z" construction, and a colon mid-line.
-- *Dwelling* (`episode-20-fd` scene 04): the opposite failure — **93 wpm** and
-  double the length, so a ~9 s scene renders at 16.8 s. Trigger: spoken flag
-  names ("dash E", "dash H") make the engine hang on the letters. Rewriting the
-  line to name the *capability* instead of the flag restored 170 wpm.
+- *Dwelling*: the opposite failure — the engine slows on a phrase, so a ~9 s
+  scene renders much longer. Three triggers now on record, all found by probing
+  variants of the same line at the same seed:
+  - **spoken flag names** — "dash E" / "dash H" (`episode-20-fd`, 93 wpm,
+    16.16 s). Naming the *capability* instead of the flag restored 170 wpm.
+  - **repeated words** — "different" three times in one sentence
+    (`episode-21-btop`, 135 wpm). Rewriting to one "different" gave 212 wpm.
+  - **punctuation that invites a pause** — a mid-line colon.
 
 Measure per-scene wpm from the rendered clips before trusting a render, and
 synthesise the variants in one probe script (one process, several lines) rather
 than re-rendering per attempt.
+
+**A scene's pace can also be a length problem.** `episode-21-btop` scene 01 was
+written at 153 characters, past the ~150 limit that aborts `voxcpm2-cli` — it
+would have shipped as a silent scene. Check every narration line's length at the
+same time as its wpm; validation only flags pace, not length.
 
 **`--fit-narration` writes a bad pace into the brief.** It persists the measured
 duration, so a dwelling scene silently becomes `duration: 16.8` in `project.yaml`
