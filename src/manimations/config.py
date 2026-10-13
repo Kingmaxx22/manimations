@@ -92,7 +92,7 @@ class SceneSpec:
         return max(6.0, round(self.word_count / 2.5, 1))
 
     def validate(self) -> list[str]:
-        """Return a list of problems; empty means the spec is sound."""
+        """Return a list of structural problems; empty means the spec is sound."""
         problems: list[str] = []
         if not _ID_RE.match(self.id):
             problems.append(
@@ -106,13 +106,19 @@ class SceneSpec:
             )
         if self.duration <= 0:
             problems.append(f"scene {self.id}: duration must be > 0")
-        if self.word_count and not (WPM_MIN <= self.wpm <= WPM_MAX):
-            problems.append(
+        return problems
+
+    def wpm_warnings(self) -> list[str]:
+        """Return pace warnings (non-blocking; --fit-narration overwrites durations)."""
+        if not self.word_count:
+            return []
+        if not (WPM_MIN <= self.wpm <= WPM_MAX):
+            return [
                 f"scene {self.id}: narration is {self.wpm:.0f} wpm for "
                 f"{self.duration:g}s (aim for {WPM_MIN}-{WPM_MAX}); "
                 f"suggested duration ~{self.suggested_duration:g}s"
-            )
-        return problems
+            ]
+        return []
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "SceneSpec":

@@ -133,6 +133,17 @@ def check_project(project: ProjectConfig) -> list[Check]:
         )
     )
 
+    wpm_warnings = [w for s in project.scenes for w in s.wpm_warnings()]
+    if wpm_warnings:
+        checks.append(
+            Check(
+                "narration pace",
+                False,
+                "; ".join(wpm_warnings),
+                severity="warning",
+            )
+        )
+
     checks.append(Check("project.yaml", True, str(project.root / "project.yaml")))
     checks.append(Check("scenes.py", project.scenes_file.exists(), str(project.scenes_file)))
 

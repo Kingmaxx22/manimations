@@ -24,7 +24,9 @@ def test_scene_spec_rejects_bad_id():
 def test_scene_spec_flags_unreasonable_pace():
     spec = SceneSpec(id="01_x", cls="S", narration="a b c", duration=60)
     problems = spec.validate()
-    assert any("wpm" in p for p in problems)
+    assert not problems  # structural problems only; wpm is a warning now
+    warnings = spec.wpm_warnings()
+    assert any("wpm" in w for w in warnings)
 
 
 def test_scene_spec_suggested_duration():
