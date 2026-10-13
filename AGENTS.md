@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 21 vertical Shorts (`projects/episode-1-gdu` … `episode-21-btop`).
+catalogue of 27 vertical Shorts (`projects/episode-1-gdu` … `episode-21-btop`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -194,7 +194,7 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-21-btop/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-27-atuin/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
 tests/                  172 unit tests + 7 real-render end-to-end tests
@@ -241,7 +241,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-21-btop` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-27-atuin` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -425,7 +425,7 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-21-btop`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-27-atuin`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
@@ -441,6 +441,12 @@ narration lands in 105–185 wpm for its declared duration.
   | 8 | `episode-8-wifi` | 45.3 | 19 | `episode-19-ripgrep` | 40.6 |
   | 9 | `episode-9-bat` | 42.3 | 20 | `episode-20-fd` | 42.9 |
   | 10 | `episode-10-zoxide` | 38.9 | 21 | `episode-21-btop` | 41.9 |
+| 22 | `episode-22-delta` | 36.8 |
+| 23 | `episode-23-yazi` | 37.0 |
+| 24 | `episode-24-starship` | 30.1 |
+| 25 | `episode-25-hyperfine` | 33.0 |
+| 26 | `episode-26-glow` | 29.5 |
+| 27 | `episode-27-atuin` | 34.9 |
   | 11 | `episode-11-lazygit` | 39.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
@@ -506,10 +512,16 @@ works with no extra lookup.
 | 19 | `episode-19-ripgrep` | "Follow for Episode 20" |
 | 20 | `episode-20-fd` | "Follow for Episode 21" |
 | 21 | `episode-21-btop` | "Follow for Episode 22" |
+| 22 | `episode-22-delta` | "Follow for Episode 23" |
+| 23 | `episode-23-yazi` | "Follow for Episode 24" |
+| 24 | `episode-24-starship` | "Follow for Episode 25" |
+| 25 | `episode-25-hyperfine` | "Follow for Episode 26" |
+| 26 | `episode-26-glow` | "Follow for Episode 27" |
+| 27 | `episode-27-atuin` | "Follow for Episode 28" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 22 does not exist yet** —
-`episode-21-btop` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 28 does not exist yet** —
+`episode-27-atuin` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
