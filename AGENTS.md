@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 27 vertical Shorts (`projects/episode-1-gdu` … `episode-21-btop`).
+catalogue of 32 vertical Shorts (`projects/episode-1-gdu` … `episode-32-lazydocker`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -125,7 +125,7 @@ graphify god-nodes --top 12            # the architectural hubs
 - **The graph goes stale.** The copy in `graphify-out/` was built at commit
   `fc3f47d` (3 commits behind `HEAD`), so it still indexes the pre-rename paths
   `projects/gdu` and `projects/usbipd` (today `episode-1-gdu` and
-  `episode-2-usbipd`) and knows nothing about episodes 3–14, which are
+  `episode-2-usbipd`) and knows nothing about episodes 3–32, which are
   git-ignored. Treat project-side answers as history; `graphify update .` before
   trusting them.
 
@@ -194,10 +194,10 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-27-atuin/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-32-lazydocker/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
-tests/                  172 unit tests + 7 real-render end-to-end tests
+tests/                  177 unit tests + 7 real-render end-to-end tests
 docs/ examples/         the scene-authoring guide and a sample brief
 graphify-out/           knowledge graph of this repo (git-ignored; see §0.4)
 build/                  llama.cpp-omni, the VoxCPM GGUFs, scratch, QA (git-ignored)
@@ -216,7 +216,7 @@ works only if you substitute a live slug or restore the folder.
 ignore rule landed after the first episodes were committed — an ignore rule does
 not untrack anything. Today `git ls-files projects/` returns `_template/`,
 `episode-1-gdu/` (minus its `README.md`) and `episode-2-usbipd/`, and nothing
-else; **episodes 3–14 are entirely local and invisible to `git status`**. So
+else; **episodes 3–32 are entirely local and invisible to `git status`**. So
 `git add projects/…` silently does nothing for them — publish deliberately with
 `git add -f projects/<slug>` if that is ever wanted.
 
@@ -338,10 +338,14 @@ regression:
 - **Caching is content-hashed.** The key covers narration, class, quality, the
   whole framework source and the brief — so touching the design system
   invalidates everything automatically.
-- **Narration stays in sync.** Each scene pads to its declared duration; the
-  narration track is padded to the same timeline; the assembler refuses to
-  promote an export shorter than its scenes. `--fit-narration` measures the real
-  speech and sets the durations, removing silent tails.
+- **Narration stays in sync.** Each scene pads to its declared duration, but the
+  narration track and the subtitles are built on what each scene ACTUALLY
+  rendered at (`probe.scene_durations`), not on the brief: a scene whose
+  animation outlasts its declared duration renders longer, and a timeline built
+  on the brief would start every later scene's voice early. `manimations final`
+  names any scene that rendered longer than declared. The assembler refuses to
+  promote an export shorter than its scenes, and `--fit-narration` measures the
+  real speech and sets the durations, removing silent tails — see §13.
 - **QA is real.** `pipeline/qa.py` analyses actual rendered pixels (content
   bounds vs the safe area, edge contact, blank frames) and validates resolution,
   fps and duration from the file on disk. Never claim visual inspection beyond
@@ -372,11 +376,19 @@ regression:
   one left edge. Hit on `episode-18-eza`'s tree, which rendered as a flat list.
   Arrange first, then shift; verify by measuring `row.get_left()[0]` rather than
   trusting a downscaled contact sheet.
+- **`fit_width` guarantees the box fits, not that the text is readable.** A helper
+  that fits a mobject to a width will happily scale small type below legibility.
+  Hit on `episode-30-zellij`: a mock status ribbon holding one 44-character hint
+  line plus a mode label was wider than its 2.8-unit panel, so `fit_width` took
+  the whole ribbon to ~7.7 pt and the vision pass could not transcribe a single
+  word of it. The fix was shorter content, not a smaller font. After a
+  `fit_width`/`fit_height` call on text, read the result at native resolution —
+  "it fits" and "it is readable" are different claims.
 
 ## 8. Testing
 
 ```bash
-uv run pytest -m "not slow"    # 172 unit tests: config, theme, components,
+uv run pytest -m "not slow"    # 177 unit tests: config, theme, components,
                                # layout, orientation, narration fitting, pipeline
 uv run pytest                   # + 7 e2e tests that render with Manim, assemble
                                # with FFmpeg, and assert on the real output
@@ -425,7 +437,7 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-27-atuin`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-32-lazydocker`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
@@ -447,6 +459,11 @@ narration lands in 105–185 wpm for its declared duration.
 | 25 | `episode-25-hyperfine` | 33.0 |
 | 26 | `episode-26-glow` | 29.5 |
 | 27 | `episode-27-atuin` | 34.9 |
+| 28 | `episode-28-procs` | 29.2 |
+| 29 | `episode-29-sd` | 28.1 |
+| 30 | `episode-30-zellij` | 30.7 |
+| 31 | `episode-31-fastfetch` | 26.5 |
+| 32 | `episode-32-lazydocker` | 25.9 |
   | 11 | `episode-11-lazygit` | 39.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
@@ -457,7 +474,7 @@ narration lands in 105–185 wpm for its declared duration.
 - `projects/ipv6` and `projects/dns` are archived under `projects/old_ignore/`
   and are **not** part of the numbered series. `dns` is still the generated stubs
   (five `TODO: replace with the real visual explanation` bodies).
-- **172 unit tests + 7 end-to-end tests passing** (179 collected; the e2e six in
+- **177 unit tests + 7 end-to-end tests passing** (184 collected; the e2e six in
   `tests/test_e2e.py` plus one header test are `-m slow`). Last full unit run:
   green.
 - **One edge-contact frame is left as-is in a published cut:**
@@ -471,9 +488,10 @@ narration lands in 105–185 wpm for its declared duration.
   `problems=0`. If the narration step names a scene as silent, re-render it.
   `episode-17-gentoo` is clean after re-running at `--gpu-layers 4`.
 - **The claims audit lives in two places.** Most episodes record it in
-  `README.md` (engine, verified facts, re-render command); `episode-1-gdu` and
-  `episode-14-httpie` have no `README.md` and carry the audit as a header comment
-  in `project.yaml` instead. Episodes 1–4 also have no `verify_sfx.py`.
+  `README.md` (engine, verified facts, re-render command); `episode-1-gdu`,
+  `episode-14-httpie` and `episode-28-procs` have no `README.md` and carry the
+  audit as a header comment in `project.yaml` instead. Episodes 1–4 also have no
+  `verify_sfx.py`.
 - `graphify-out/` holds a knowledge graph of the repo (1013 nodes, 2000 edges,
   70 communities — 40 named, 30 generic) built with
   `graphify extract . --code-only` at commit `fc3f47d`. Query it with
@@ -518,10 +536,15 @@ works with no extra lookup.
 | 25 | `episode-25-hyperfine` | "Follow for Episode 26" |
 | 26 | `episode-26-glow` | "Follow for Episode 27" |
 | 27 | `episode-27-atuin` | "Follow for Episode 28" |
+| 28 | `episode-28-procs` | "Follow for Episode 29" |
+| 29 | `episode-29-sd` | "Follow for Episode 30" |
+| 30 | `episode-30-zellij` | "Follow for Episode 31" |
+| 31 | `episode-31-fastfetch` | "Follow for Episode 32" |
+| 32 | `episode-32-lazydocker` | "Follow for Episode 33" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 28 does not exist yet** —
-`episode-27-atuin` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 33 does not exist yet** —
+`episode-32-lazydocker` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -529,11 +552,11 @@ published — fix them only when re-rendering the affected episode:
 - **`episode-1-gdu` never numbered itself.** Its CTA is "Follow for more /
   terminal black magic". That is why the chain *looks* like it starts at 2.
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
-  dominates — `usbipd`, `ollama`, `f3`, `mise`, `wifi`, `bat`, `zoxide`,
-  `lazygit`, `tldr`, `fzf`, `httpie`, `sequoia`, `gentoo`, `eza`, `ripgrep`,
-  `fd`, `btop` (17 episodes). "Power-User & Developer Shortcuts" survives in `sortdl`
-  and `cloudflared` only (2 episodes), and `episode-1-gdu`'s brief names no
-  series at all. Pick one when the series is next branded.
+  dominates — 29 of the 32 episodes name it, including every episode from
+  `ollama` (Ep 5) onward except the two below. "Power-User & Developer
+  Shortcuts" survives in `sortdl` (Ep 3) and `cloudflared` (Ep 4) only, and
+  `episode-1-gdu`'s brief names no series at all. Pick one when the series is
+  next branded.
 
 The CTA is spoken, so it is subject to the TTS pronunciation check (§0.3) —
 "Follow for Episode seven" is safe, a bare numeral is not. Every episode since 2
@@ -572,10 +595,15 @@ Be honest about these rather than working around them:
 - The **quantized GGUF backend** (`--engine voxcpm-gguf`) *has* been exercised
   against the real 2B model — see §13 for the measured numbers — and is what every
   delivered episode uses. Its caveats are the llama.cpp-omni dependency, the
-  fixed layer-count default (8 is unsafe here; the episodes all pass
-  `--gpu-layers 6`), and the engine's mangling of tool names: it reads "Ollama"
-  as *"a llama"* and "HTTPie" as "HTTP", so names are spelled for the ear in the
-  narration and kept whole in `subtitle_text` / on-screen text.
+  fixed layer-count default (8 is unsafe here; episodes up to 16 pass
+  `--gpu-layers 6`, and every episode from 17 on passes `--gpu-layers 4`), and
+  the engine's mangling of short tool names: it reads "Ollama" as *"a llama"*,
+  "HTTPie" as "HTTP", and a bare "sd" as something 1.6 s slower than the spelled
+  *"ess-dee"*. Spelling is **per name, not a rule** — probed, never assumed: on
+  `episode-30-zellij` bare "Tmux" was the well-behaved form (177 wpm) while both
+  "T mux" (241 wpm) and "Tee-mux" (199 wpm) rushed. A name is spelled for the ear
+  in the narration only if the probe says so; it is kept whole in `subtitle_text`
+  / on-screen text either way.
 - llama.cpp-omni is **Linux-first**: its Windows story is build-from-source (the
   only prebuilt binaries are the Comni GUI, which has no headless CLI). The
   Windows build is verified here, but a Linux/macOS build may behave differently.
@@ -638,16 +666,27 @@ the silent scenes explicitly, and
 `tests/test_tts_engines.py::test_partial_narration_failure_is_surfaced_not_silently_padded`
 covers it. If a scene reports silence, re-run it — do not ship it.
 
-**Pace outliers run in both directions, and only a probe finds the trigger.** The
-seed is fixed at 42, so a re-run reproduces the identical clip byte-for-byte and
-a retry can never fix a bad line — the fix is always wording.
+**Pace outliers run in both directions, and only a probe finds the trigger.** A
+bad line is fixed by rewording, but NOT for the reason this file used to give.
+It claimed the seed is fixed at 42 "so a re-run reproduces the identical clip
+byte-for-byte and a retry can never fix a bad line". **The engine is not
+reproducible on this box.** Measured on `episode-32-lazydocker` (2026-10-14,
+`--gpu-layers 4`): four runs of one line produced four different SHA-256
+digests, and a second line moved **3.84 / 4.32 / 4.48 / 4.48 s** across four
+runs at the same seed. The same hook line measured **4.64 s** in a probe script
+and **5.44 s** in a pipeline run. A retry therefore *does* give you a different
+take — just a random one, which is why wording is still the only controllable
+lever. **Treat any gap below ~0.6 s as noise.** A differential probe is only
+evidence when the difference dwarfs that (episode 29's 0.198 vs 0.373 s/word,
+episode 32's 3.04 vs 5.44 s), and a line you are about to "fix" by a hair is
+worth re-measuring first.
 
 - *Rushing* (three earlier episodes): a scene lands at **275–300 wpm** while its
   siblings sit at 170–200. Triggers found so far: the contrastive "X, not Y, so
   Z" construction, and a colon mid-line.
 - *Dwelling*: the opposite failure — the engine slows on a phrase, so a ~9 s
   scene renders much longer. Three triggers now on record, all found by probing
-  variants of the same line at the same seed:
+  variants of the same line in one process:
   - **spoken flag names** — "dash E" / "dash H" (`episode-20-fd`, 93 wpm,
     16.16 s). Naming the *capability* instead of the flag restored 170 wpm.
   - **repeated words** — "different" three times in one sentence
@@ -657,6 +696,76 @@ a retry can never fix a bad line — the fix is always wording.
 Measure per-scene wpm from the rendered clips before trusting a render, and
 synthesise the variants in one probe script (one process, several lines) rather
 than re-rendering per attempt.
+
+**A healthy wpm can hide a swallowed phrase — check the seconds per word too.**
+On `episode-29-sd` the line *"…a dry-run preview with **dash p**, and identical
+behavior everywhere."* measured a perfectly normal **170.5 wpm**. It was still
+broken: the variant without those three words ran 5.12 s and the one with them
+5.28 s, so the flag bought **0.16 s** where the engine's own ~0.3 s/word says
+three words cost ~1.0 s. The flag was never spoken, which is exactly *why* the
+wpm looked fine — the surviving words set the pace. **wpm is words ÷ duration,
+so it cannot see words that were dropped; compare the duration delta of a
+minimal pair instead.** The same episode's *"Install sd with brew"* showed the
+mirror image — the bare name cost 1.6 s more than *"ess-dee"* at identical word
+count, the name-mangling already on record for "Ollama" and "HTTPie". Both
+fixed by wording, both confirmed before the first render.
+
+**Spelling a name for the ear is per name, not a rule — probe every name.**
+`episode-29-sd` needed a bare "sd" spelled as *"ess-dee"* (it cost 1.6 s).
+`episode-30-zellij` probed the same three spellings for "tmux" and got the
+opposite answer: bare "Tmux" 177 wpm / 0.339 s per word, against "T mux" 241 wpm
+/ 0.249 and "Tee-mux" 199 wpm / 0.301 — both *spelled* forms rushed. Use the
+measured winner for that name; the previous episode's answer does not transfer.
+
+**A trend across episodes is not a cause — probe the line, not the pattern.**
+Three consecutive outros measured 0.347 s/word (`episode-29-sd`), 0.427
+(`episode-30-zellij`) and 0.600 (`episode-31-fastfetch`), and all three ended
+in a spoken compound number — "thirty", "thirty-one", "thirty-two". It looked
+like a clean dose-response on the number. Five rewrites later the number was
+innocent: de-hyphenating it, reordering the sentences and deleting a sentence
+all failed, while changing "Install fastfetch with brew" to "Get fastfetch
+from brew" took the line from 0.600 to 0.413 s/word and saved 2.24 s at
+identical word count. Three data points on three *different* lines are a
+coincidence until one probe separates the variables.
+
+**The CTA numeral warning is about the CTA, not about numbers.** §11.1 says a
+bare numeral is unsafe for the ear, which is true where it follows a proper
+noun ("Follow for Episode seven", never "Episode 7"). It is not a general
+rule: `episode-31-fastfetch` measured *"…last commit was in 2024."* at
+0.436 s/word against *"…in twenty twenty-four."* at 0.440 — within noise, so a
+four-digit year is fine mid-sentence.
+
+**A scene's duration must beat its ANIMATION, not just its narration.**
+`--fit-narration` sets `duration = narration + 0.6 s` and overwrites whatever
+was declared, even when the declared value was LARGER. Its docstring claims
+otherwise ("scenes whose animation is longer than the narration keep their
+declared duration") — the code does not do that, so do not trust the
+sentence. When the target falls below the scene's own animation time,
+`_pad_to_target` takes its `elif` branch and applies the 1.1 s minimum hold
+*instead of* the pad, so the scene overruns, the rendered timeline grows past
+the narration timeline, and every later scene plays its voice early.
+`episode-32-lazydocker` hit this on its first render: a 3.6 s target against a
+3.77 s animation made scene 01 render 4.90 s, scene 03's voice started 1.1 s
+before scene 03 appeared, and the last 2.5 s had no audio at all.
+
+The pipeline now copes with the overrun: the narration track and the subtitles
+are built from `probe.scene_durations(...)`, so the voice stays aligned with
+the picture whatever a scene does, and `manimations final` names every scene
+that rendered longer than declared. The overrun still costs a frozen frame, so
+keep `narration + 0.6 >= animation + margin`. Measure a scene's animation time
+by forcing every declared duration to 1.0 s and reading the render back
+(rendered − 1.1 s). Verify any export with `ffmpeg -af silencedetect`: every
+line must start just after its own scene's boundary and finish inside it.
+
+**s/word is confounded by word length — judge on wpm.** The 0.30-0.43
+seconds-per-word band came from episodes 27-31, whose lines happened to use
+short words. On `episode-32-lazydocker` every variant of two lines measured
+0.44-0.47 s/word and looked like a dwell, while running at 125-137 wpm — an
+ordinary conversational pace. "Memorising docker commands is hard" is 5 words
+and ~10 syllables, so it cannot sit in a band built from short ones. The
+dwellers that actually shipped were 93 wpm and 100 wpm; nothing there was
+close. Use wpm to judge a line and s/word only to compare variants of the
+*same* line.
 
 **A scene's pace can also be a length problem.** `episode-21-btop` scene 01 was
 written at 153 characters, past the ~150 limit that aborts `voxcpm2-cli` — it
