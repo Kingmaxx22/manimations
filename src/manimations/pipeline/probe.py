@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,6 +116,34 @@ def probe_audio_duration(path: str | Path) -> float:
         return float(proc.stdout.strip() or 0.0)
     except (subprocess.SubprocessError, ValueError, OSError):
         return 0.0
+
+
+def scene_durations(files: Iterable[str | Path]) -> dict[str, float]:
+    """Measured duration of each rendered scene file, keyed by scene id.
+
+    The file stem is the scene id (``build/final/03_solution.mp4`` ->
+    ``03_solution``).  Files that are missing or unreadable are left out so
+    callers can fall back to the brief's declared duration for those.
+
+    Why this exists: a scene's declared ``duration`` is a *target*, not a
+    promise.  ``ExplainerScene._pad_to_target`` holds the final frame until the
+    target, but when the scene's own animation already runs longer it applies a
+    minimum hold INSTEAD of the pad, so the scene renders longer than declared.
+    Any timeline built afterwards — the narration track, the subtitles, the SFX
+    cues — has to follow what was actually rendered, or every later scene's
+    voice starts early by the overrun.  Measured on episode-32-lazydocker: a
+    1.3 s overrun on scene 01 put scene 03's voice 1.1 s before scene 03
+    appeared, with the last 2.5 s of the video silent.
+    """
+    out: dict[str, float] = {}
+    for item in files:
+        path = Path(item)
+        if not path.exists():
+            continue
+        info = probe_video(path)
+        if info is not None and info.duration > 0:
+            out[path.stem] = info.duration
+    return out
 
 
 def extract_frames(video: str | Path, out_dir: str | Path, *, fps: float = 1.0,

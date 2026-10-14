@@ -298,7 +298,16 @@ def cmd_final(args: argparse.Namespace) -> int:
                 print(f"  {sid}: {old:.1f}s -> {new:.1f}s")
             print(ok(f"fitted {len(changes)} scene duration(s) to the narration"))
         else:
-            print(warn("no narration measured; keeping the declared durations"))
+            measured = [c for c in clips if c.ok and c.duration > 0]
+            if measured:
+                # Not an error, and not "nothing was measured": every scene's
+                # declared duration already equals its narration + tail, so
+                # there was nothing to fit.  The old wording said "no narration
+                # measured" here, which is the opposite of what happened.
+                print(ok(f"declared durations already match the narration "
+                         f"({len(measured)} scene(s) measured)"))
+            else:
+                print(warn("no narration measured; keeping the declared durations"))
         # durations changed -> any cached render is stale for this project
         if changes:
             for sid, _, _ in changes:
@@ -314,6 +323,25 @@ def cmd_final(args: argparse.Namespace) -> int:
                   f"{proj.qa_dir / 'render_errors.txt'}"))
         return 1
     print(ok(f"{len(report.results)} scene(s) rendered in {report.total_seconds:.1f}s"))
+
+    # What each scene ACTUALLY rendered at.  A declared duration is a target, not
+    # a promise: a scene whose own animation outlasts it gets the minimum hold
+    # instead of the pad and comes out longer (ExplainerScene._pad_to_target).
+    # Every timeline built below follows these numbers, not the brief's.
+    rendered = probe.scene_durations(_final_scene_files(proj, only))
+    overruns = [
+        (spec.id, spec.duration, rendered[spec.id])
+        for spec in proj.scenes
+        if spec.id in rendered and rendered[spec.id] > spec.duration + 0.05
+    ]
+    if overruns:
+        print(warn("scene(s) rendered LONGER than declared — the animation needs "
+                   "more time than the brief allows:"))
+        for sid, declared, actual in overruns:
+            print(warn(f"  {sid}: declared {declared:.2f}s, rendered {actual:.2f}s"))
+        print(warn("  the voice is re-timed to the render, but the gap means the "
+                   "scene holds a frozen frame — lengthen the narration so "
+                   "narration + tail >= animation time (see AGENTS.md 13)"))
 
     # --- narration (already generated when fitting) ---------------------------
     if args.voiceover and not clips:
@@ -346,7 +374,8 @@ def cmd_final(args: argparse.Namespace) -> int:
             print(warn("re-run those scenes, or lower --gpu-layers / shorten "
                        "the line (see AGENTS.md 13)"))
         if good:
-            narration_path = audio.build_narration_track(proj, clips)
+            narration_path = audio.build_narration_track(proj, clips,
+                                                         durations=rendered)
             if narration_path:
                 print(ok(f"narration track: {narration_path}"))
         else:
@@ -355,7 +384,7 @@ def cmd_final(args: argparse.Namespace) -> int:
     # --- subtitles ---------------------------------------------------------
     subs = None
     if args.subtitles or args.voiceover:
-        subs = audio.build_srt(proj, clips)
+        subs = audio.build_srt(proj, clips, durations=rendered)
         print(ok(f"subtitles: {subs}"))
 
     # --- music -------------------------------------------------------------
@@ -391,12 +420,15 @@ def cmd_assemble(args: argparse.Namespace) -> int:
     print(hdr(f"Assembling — {proj.title}"))
     narration = None
     clips = []
+    # Assemble re-times the voice to the scenes that are already on disk, for the
+    # same reason cmd_final does: a scene can render longer than the brief asked.
+    rendered = probe.scene_durations(_final_scene_files(proj))
     if args.voiceover:
         clips = audio.synthesise_narration(
             proj, voice=args.voice, language=args.language, **_engine_opts(args),
         )
-        narration = audio.build_narration_track(proj, clips)
-    subs = audio.build_srt(proj, clips) if (args.subtitles or args.voiceover) else None
+        narration = audio.build_narration_track(proj, clips, durations=rendered)
+    subs = audio.build_srt(proj, clips, durations=rendered) if (args.subtitles or args.voiceover) else None
     music = Path(args.music) if args.music else None
     result = assembler.assemble_project(
         proj, _final_scene_files(proj), narration=narration, music=music,
@@ -427,10 +459,12 @@ def cmd_voiceover(args: argparse.Namespace) -> int:
         else:
             print("  " + bad(f"{c.scene_id}: {c.error}"))
     if okc:
-        track = audio.build_narration_track(proj, clips)
+        # Build against what is already rendered, when anything is.
+        rendered = probe.scene_durations(_final_scene_files(proj))
+        track = audio.build_narration_track(proj, clips, durations=rendered)
         if track:
             print(ok(f"narration track: {track}"))
-        srt = audio.build_srt(proj, clips)
+        srt = audio.build_srt(proj, clips, durations=rendered)
         print(ok(f"subtitles: {srt}"))
     return 0 if okc else 1
 
@@ -444,7 +478,8 @@ def cmd_subtitles(args: argparse.Namespace) -> int:
         if wav.exists():
             clips.append(audio.NarrationClip(
                 spec.id, wav, probe.probe_audio_duration(wav), spec.narration, True))
-    srt = audio.build_srt(proj, clips)
+    srt = audio.build_srt(proj, clips,
+                          durations=probe.scene_durations(_final_scene_files(proj)))
     print(ok(f"subtitles: {srt}"))
     return 0
 

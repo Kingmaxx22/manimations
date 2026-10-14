@@ -554,29 +554,59 @@ def _wrap(text: str, width: int = 42) -> str:
     return "\n".join(lines)
 
 
+def scene_timeline(project: ProjectConfig,
+                   durations: dict[str, float] | None = None,
+                   ) -> list[tuple[str, float, float]]:
+    """``(scene_id, start, end)`` for every scene on the assembled timeline.
+
+    ``durations`` maps scene id -> the duration the scene ACTUALLY rendered at,
+    and it wins over the brief's declared value.  The declared duration is only
+    a target: when a scene's animation outlasts it, ``ExplainerScene`` applies
+    its minimum hold instead of the pad and the scene renders longer (see
+    ``_pad_to_target``).  A timeline built on the declared values then starts
+    every later scene's voice early by the overrun — measured on
+    episode-32-lazydocker, where scene 01 overran by 1.3 s, scene 03's voice
+    began 1.1 s before scene 03 appeared, and the last 2.5 s had no audio.
+
+    Callers with rendered files should pass ``probe.scene_durations(...)``.
+    """
+    out: list[tuple[str, float, float]] = []
+    t = 0.0
+    for spec in project.scenes:
+        dur = max((durations or {}).get(spec.id, spec.duration), 0.5)
+        out.append((spec.id, t, t + dur))
+        t += dur
+    return out
+
+
 def build_srt(project: ProjectConfig, clips: list[NarrationClip] | None = None,
-              *, out_path: Path | None = None) -> Path:
+              *, out_path: Path | None = None,
+              durations: dict[str, float] | None = None) -> Path:
     """Write an SRT aligned to the *assembled video* timeline.
 
-    Cue times come from each scene's declared ``duration`` in the brief, because
-    that is exactly how long the rendered scene is (``ExplainerScene.settle()``
-    pads every scene to its declared duration).  Using the raw narration length
-    instead would drift, since speech is usually shorter than the scene.
+    Cue times come from each scene's duration — its declared value in the brief,
+    unless ``durations`` supplies what the scene ACTUALLY rendered at, which
+    wins.  The declared duration is not "exactly how long the rendered scene is":
+    when a scene's animation outlasts it, ``_pad_to_target`` applies a minimum
+    hold instead of the pad and the scene comes out longer, so cue times built
+    on the brief drift from that scene onward.
+
+    Using the raw narration length instead would drift too, since speech is
+    usually shorter than the scene.
     """
     out_path = Path(out_path or project.build_dir / "subtitles.srt")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     entries: list[str] = []
-    t = 0.0
     idx = 1
+    spans = {sid: (start, end)
+             for sid, start, end in scene_timeline(project, durations)}
     for spec in project.scenes:
-        dur = max(spec.duration, 0.5)
-        start, end = t, t + dur
+        start, end = spans[spec.id]
         text = spec.subtitle_source
         if text:
             entries.append(f"{idx}\n{_ts(start)} --> {_ts(end)}\n{_wrap(text)}\n")
             idx += 1
-        t = end
     out_path.write_text("\n".join(entries), encoding="utf-8")
     return out_path
 
@@ -691,19 +721,33 @@ def _persist_durations(project: ProjectConfig) -> None:
 
 
 def build_narration_track(project: ProjectConfig, clips: list[NarrationClip],
-                          dst: Path | None = None) -> Path | None:
+                          dst: Path | None = None,
+                          durations: dict[str, float] | None = None) -> Path | None:
     """Build a single narration track aligned to the scene timeline.
 
-    Each clip is padded/trimmed to its scene's declared duration so the track
-    lines up with the assembled video even when speech is shorter or longer.
+    Each clip is padded/trimmed to its scene's duration so the track lines up
+    with the assembled video even when speech is shorter or longer.
+
+    ``durations`` maps scene id -> the duration the scene ACTUALLY rendered at,
+    and it wins over the brief's declared value.  The declared duration is only
+    a target: when a scene's animation outlasts it, ``ExplainerScene`` applies
+    its minimum hold instead of the pad and the scene comes out longer (see
+    ``_pad_to_target``).  Building the track on the declared timeline then
+    starts every later scene's voice early by the overrun — measured on
+    episode-32-lazydocker, where scene 01 overran by 1.3 s, scene 03's voice
+    began 1.1 s before scene 03 appeared, and the last 2.5 s had no audio.
+    Callers with rendered files should pass ``probe.scene_durations(...)``.
     """
     dst = Path(dst or project.audio_dir / "narration.wav")
     parts: list[Path] = []
+    spans = {sid: (start, end)
+             for sid, start, end in scene_timeline(project, durations)}
     for spec in project.scenes:
         clip = next((c for c in clips if c.scene_id == spec.id), None)
-        # Always pad/trim to the scene's declared duration, whether or not it has
+        # Always pad/trim to the scene's duration, whether or not it has
         # narration, so the track length matches the assembled video exactly.
-        target = max(spec.duration, 0.5)
+        start, end = spans[spec.id]
+        target = max(end - start, 0.5)
         if clip is None or not clip.ok or clip.path is None:
             # silence placeholder of the right length keeps alignment
             silence = project.audio_dir / f"{spec.id}_silence.wav"

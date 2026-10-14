@@ -77,3 +77,69 @@ def test_fit_reduces_total_dead_air(project_dir):
     after = proj.total_duration
     assert after < before
     assert after == pytest.approx(15.0)  # 6.5 + 8.5
+
+
+# ---------------------------------------------------------------------------
+# the timeline must follow what was RENDERED, not what the brief declared
+#
+# A declared duration is a target, not a promise.  ExplainerScene._pad_to_target
+# holds the final frame until the target, but when the scene's own animation
+# already runs longer it applies a minimum hold INSTEAD of the pad, so the scene
+# renders longer than declared.  Everything downstream that builds a timeline
+# has to use the rendered numbers.
+#
+# Regression: episode-32-lazydocker.  Scene 01 was declared 3.6s but animated
+# for 3.77s, so it rendered 4.90s.  The narration track and the subtitles were
+# built on the declared timeline, so scene 03's voice began 1.1s before scene 03
+# appeared on screen and the last 2.5s of the video had no audio.
+# ---------------------------------------------------------------------------
+def test_scene_timeline_uses_rendered_durations(project_dir):
+    proj = ProjectConfig.load(project_dir)
+
+    # no override: the brief's declared durations, 12s each
+    assert [(sid, start, end) for sid, start, end in audio.scene_timeline(proj)] == [
+        ("01_intro", 0.0, 12.0),
+        ("02_body", 12.0, 24.0),
+    ]
+
+    # scene 01 overran by 1.3s -> scene 02 starts 1.3s later, not at 12.0
+    timeline = audio.scene_timeline(proj, {"01_intro": 13.3, "02_body": 12.0})
+    assert [sid for sid, _, _ in timeline] == ["01_intro", "02_body"]
+    assert timeline[0][1] == 0.0
+    assert timeline[0][2] == pytest.approx(13.3)
+    assert timeline[1][1] == pytest.approx(13.3)
+    assert timeline[1][2] == pytest.approx(25.3)
+
+
+def test_scene_timeline_is_contiguous(project_dir):
+    """No gaps or overlaps, whatever mix of declared and rendered is supplied."""
+    proj = ProjectConfig.load(project_dir)
+    timeline = audio.scene_timeline(proj, {"02_body": 9.0})
+    for (_sid, _start, end), (_nid, nstart, _nend) in zip(timeline, timeline[1:]):
+        assert nstart == pytest.approx(end)
+
+
+def test_scene_timeline_honours_a_floor(project_dir):
+    """A zero or absurd duration cannot collapse the timeline."""
+    proj = ProjectConfig.load(project_dir)
+    timeline = audio.scene_timeline(proj, {"01_intro": 0.0})
+    assert timeline[0][2] == pytest.approx(0.5)
+
+
+def test_build_srt_cue_times_follow_rendered_durations(project_dir, tmp_path):
+    proj = ProjectConfig.load(project_dir)
+    out = audio.build_srt(proj, out_path=tmp_path / "s.srt",
+                          durations={"01_intro": 13.3, "02_body": 12.0})
+    text = out.read_text(encoding="utf-8")
+    # second cue starts where the FIRST scene actually ended
+    assert "00:00:13,300 --> 00:00:25,300" in text
+    assert "00:00:12,000 --> 00:00:24,000" not in text
+
+
+def test_scene_durations_skips_unreadable_files(tmp_path):
+    """Unreadable or missing files are omitted so callers fall back."""
+    from manimations.pipeline import probe
+
+    bogus = tmp_path / "01_intro.mp4"
+    bogus.write_text("not a video", encoding="utf-8")
+    assert probe.scene_durations([bogus, tmp_path / "missing.mp4"]) == {}
