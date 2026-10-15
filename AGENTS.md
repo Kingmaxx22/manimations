@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 32 vertical Shorts (`projects/episode-1-gdu` … `episode-32-lazydocker`).
+catalogue of 36 vertical Shorts (`projects/episode-1-gdu` … `episode-36-gping`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -194,7 +194,7 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-32-lazydocker/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-36-gping/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
 tests/                  177 unit tests + 7 real-render end-to-end tests
@@ -241,7 +241,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-27-atuin` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-36-gping` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -370,6 +370,28 @@ regression:
   and 03: the `$ grep` and `$ rg` command lines were missing from every final
   frame while the panel and its rows were fine. Order the plays as
   `FadeIn(panel)` → `Write(command)` → rows.
+- **Manim shapes default to `fill_opacity=0`, so `fill_color` alone draws
+  nothing.** Passing `fill_color` without `fill_opacity=1.0` renders an
+  invisible shape, and if that shape has no stroke there is no trace of it
+  at all — no error, just an empty region. Hit on `episode-33-duf`: every
+  drawn usage bar was invisible, because the whole point of a bar IS its
+  fill. `surfaces.panel` and `RoundedRectangle`-based mocks are fine as
+  long as they set `fill_opacity`. Check a coloured shape by counting
+  accent-coloured pixels in the rendered frame, not by eye at preview size:
+  the first render of that scene had exactly zero rose and zero green pixels.
+- **`typography.headline` / `.body` / `.label` / `.mono` take no `align`
+  keyword.** They return a Manim `Text`, which is centred at its origin,
+  so alignment comes from position. Passing `align=` fails the whole scene
+  with `TypeError: headline() got an unexpected keyword argument 'align'` —
+  it took down all five scenes of `episode-34-gum` on the first preview.
+  Centre with `move_to([0, y, 0])`, not with a keyword.
+- **`Line` takes only a start and an end, so a polyline needs
+  `VMobject.set_points_as_corners`.** Unpacking a 12-point list into
+  `Line(*points)` fails the whole scene with `TypeError: Line.__init__()
+  takes from 1 to 5 positional arguments but 13 were given`.  Hit on
+  `episode-36-gping`'s latency curve, which is the entire point of the
+  scene — a one-host graph with a single segment would have rendered
+  fine and hidden the bug.
 - **`arrange(aligned_edge=...)` re-aligns, so indent after arranging.** Applying
   `shift(RIGHT * depth)` to rows *before* `VGroup(*rows).arrange(DOWN,
   aligned_edge=LEFT)` silently flattens the indent — every row is pulled back to
@@ -437,7 +459,7 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-32-lazydocker`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-36-gping`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
@@ -464,6 +486,10 @@ narration lands in 105–185 wpm for its declared duration.
 | 30 | `episode-30-zellij` | 30.7 |
 | 31 | `episode-31-fastfetch` | 26.5 |
 | 32 | `episode-32-lazydocker` | 25.9 |
+| 33 | `episode-33-duf` | 25.6 |
+| 34 | `episode-34-gum` | 28.7 |
+| 35 | `episode-35-doggo` | 27.1 |
+| 36 | `episode-36-gping` | 26.7 |
   | 11 | `episode-11-lazygit` | 39.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
@@ -541,10 +567,14 @@ works with no extra lookup.
 | 30 | `episode-30-zellij` | "Follow for Episode 31" |
 | 31 | `episode-31-fastfetch` | "Follow for Episode 32" |
 | 32 | `episode-32-lazydocker` | "Follow for Episode 33" |
+| 33 | `episode-33-duf` | "Follow for Episode 34" |
+| 34 | `episode-34-gum` | "Follow for Episode 35" |
+| 35 | `episode-35-doggo` | "Follow for Episode 36" |
+| 36 | `episode-36-gping` | "Follow for Episode 37" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 33 does not exist yet** —
-`episode-32-lazydocker` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 37 does not exist yet** —
+`episode-36-gping` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -552,7 +582,7 @@ published — fix them only when re-rendering the affected episode:
 - **`episode-1-gdu` never numbered itself.** Its CTA is "Follow for more /
   terminal black magic". That is why the chain *looks* like it starts at 2.
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
-  dominates — 29 of the 32 episodes name it, including every episode from
+  dominates — 34 of the 36 episodes name it, including every episode from
   `ollama` (Ep 5) onward except the two below. "Power-User & Developer
   Shortcuts" survives in `sortdl` (Ep 3) and `cloudflared` (Ep 4) only, and
   `episode-1-gdu`'s brief names no series at all. Pick one when the series is
