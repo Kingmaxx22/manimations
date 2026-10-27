@@ -1,4 +1,4 @@
-# AGENTS.md
+    # AGENTS.md
 
 Guidance for AI agents and contributors working in this repository.
 
@@ -7,7 +7,7 @@ Manim Community Edition. You give it a topic and a structured scene brief, and i
 produces a finished, narrated explainer video — rendering, error recovery,
 assembly, voiceover and subtitles included. It ships with a reusable component
 library, a design system, a render/repair/assemble pipeline, and a working
-catalogue of 36 vertical Shorts (`projects/episode-1-gdu` … `episode-36-gping`).
+catalogue of 51 vertical Shorts (`projects/episode-1-gdu` … `episode-51-stern`).
 
 Everything runs locally with free tools. No paid APIs, cloud services or
 subscriptions.
@@ -90,6 +90,36 @@ rendered on screen. Reading `ollama.com/library/llama3.1` live showed the vendor
 lists **4.9GB**. The wrong number was in a delivered video; the vendor page
 settled it in one command.
 
+**A vendor's summary line is not the vendor's specification.**  The README
+of `navi` describes its shell widget as working "_à la_ Ctrl-R", which reads
+like the keybinding is Ctrl-R; the actual binding is **Ctrl+G**, stated in
+`docs/widgets/README.md`.  A draft claim that looked wrong was right, and
+only the sub-page settled it.  The same shape appeared on
+`episode-39-watchexec`, where the CLI README advertised an `apt` install that
+the vendor's own `doc/packages.md` marked defunct.  When a claim hinges on a
+specific flag, key or command, read the page that specifies it — the summary
+is written for a reader, not for verification.
+
+**A roadmap item is not support.** `episode-50-ctop`'s draft claimed ctop
+monitors "Docker and Podman". ctop's README says it ships "with built-in support
+for Docker and runC; connectors for other container and cluster systems are
+planned for future releases" — a roadmap sentence that reads like a feature list.
+The source settles it: `connector/docker.go` and `connector/runc.go` exist,
+there is no `connector/podman.go`, and a grep for "podman" across the whole
+repository returns **zero** matches. When a draft names a platform or
+integration, check the directory that implements it — the vendor's own tree is
+the shortest route to "is this real?".
+
+**A screenshot is not the specification either, and can be actively
+misleading.** `episode-49-dive`'s draft claimed dive highlights modified files
+in "yellow/red". dive's README never names the colours, so the next check is the
+vendor's own demo GIF — and the demo **disagrees with the source**: GIF palette
+quantisation renders `FgRed` as pink, so a pixel pass over the demo reads the
+removed-file rows as *magenta*. Only `dive/filetree/file_node.go` settles it
+(`Added: FgGreen`, `Removed: FgRed`, `Modified: FgYellow`). A lossy image format
+is a rendering of the UI, not the UI; when a claim is about what the software
+actually does, read the code that does it.
+
 **Do not announce a verdict before you have read the source.** A draft claim can
 look wrong and be right, and saying so early costs the user's trust in the ones
 you get right. On `episode-21-btop` the claim "btop lacks real-time GPU metrics"
@@ -125,7 +155,7 @@ graphify god-nodes --top 12            # the architectural hubs
 - **The graph goes stale.** The copy in `graphify-out/` was built at commit
   `fc3f47d` (3 commits behind `HEAD`), so it still indexes the pre-rename paths
   `projects/gdu` and `projects/usbipd` (today `episode-1-gdu` and
-  `episode-2-usbipd`) and knows nothing about episodes 3–32, which are
+  `episode-2-usbipd`) and knows nothing about episodes 3–51, which are
   git-ignored. Treat project-side answers as history; `graphify update .` before
   trusting them.
 
@@ -194,7 +224,7 @@ src/manimations/
 
 projects/
 ├── _template/          copyable starter for a new topic (3-scene skeleton)
-├── episode-1-gdu/ … episode-36-gping/   the Shorts series (see §11.1)
+├── episode-1-gdu/ … episode-48-gh/   the Shorts series (see §11.1)
 └── old_ignore/         archived: ipv6/ and dns/ (git-ignored, not current)
 
 tests/                  177 unit tests + 7 real-render end-to-end tests
@@ -216,7 +246,7 @@ works only if you substitute a live slug or restore the folder.
 ignore rule landed after the first episodes were committed — an ignore rule does
 not untrack anything. Today `git ls-files projects/` returns `_template/`,
 `episode-1-gdu/` (minus its `README.md`) and `episode-2-usbipd/`, and nothing
-else; **episodes 3–32 are entirely local and invisible to `git status`**. So
+else; **episodes 3–51 are entirely local and invisible to `git status`**. So
 `git add projects/…` silently does nothing for them — publish deliberately with
 `git add -f projects/<slug>` if that is ever wanted.
 
@@ -241,7 +271,7 @@ uv run pytest                        # adds tests that really render + assemble
 ```
 
 `<slug>` is a live folder under `projects/` — today that means one of the
-`episode-*` series, e.g. `episode-36-gping` (the same string as its `slug:`).
+`episode-*` series, e.g. `episode-48-gh` (the same string as its `slug:`).
 
 Always use `uv run …` from the repo root — the bare `python` on this machine is
 a different interpreter and cannot see Manim.
@@ -356,6 +386,16 @@ regression:
   does not match the narration. **The vision model is available** (see §12), so
   load `projects/*/build/qa/*_sheet.png` with `vision_analyze` after a preview
   and read the frames. Both checks are required; neither replaces the other.
+  - **A small render can manufacture a defect as easily as hide one.** The
+    480 px contact sheets are for *legibility of type*, not for judging a
+    graphic. On `episode-50-ctop` a vision pass over the sheet read the
+    10-segment CPU/MEM gauges as "8 segments, identical within each row" — which
+    would have meant the bars carried no information. At native resolution the
+    gauges are 10 segments and CPU and MEM differ in every row. **Before
+    "fixing" a diagram, extract a frame at native resolution and judge it
+    there** (`ffmpeg -sseof -0.35 -i scene.mp4 -frames:v 1 out.png`); the frame
+    that looks broken on the sheet is often fine, and the reverse is just as
+    true.
   - Contact sheets are **downscaled** (480 px wide), so small type looks blurrier
     there than in the render. Before "fixing" a legibility problem, extract a
     frame at native resolution (`ffmpeg -sseof -0.4 -i scene.mp4 -frames:v 1
@@ -370,6 +410,19 @@ regression:
   and 03: the `$ grep` and `$ rg` command lines were missing from every final
   frame while the panel and its rows were fine. Order the plays as
   `FadeIn(panel)` → `Write(command)` → rows.
+- **`surfaces.panel(..., fill=None)` is NOT an unfilled panel — it is an
+  OPAQUE panel.**  The signature is
+  `panel(width, height, *, accent, fill=None, stroke=None,
+  corner_radius=0.16, fill_opacity=1.0, stroke_width=1.6)` and the body does
+  `fill_color = fill or THEME.surface`, so passing `fill=None` silently means
+  "fill with the surface colour, fully opaque".  Pass `fill_opacity=0.0`
+  for a border-only box, and set any tint explicitly afterwards.  Hit on
+  `episode-47-choose`, whose picked field chips were built exactly this way;
+  the same trap sits behind the `fill_opacity` entry just below this one.
+  Note the corollary: when a chip's border, tint and LABEL are all the same
+  accent colour, the label disappears into the highlight — a chip is only
+  readable if its text contrasts with the fill it sits on.
+
 - **Manim shapes default to `fill_opacity=0`, so `fill_color` alone draws
   nothing.** Passing `fill_color` without `fill_opacity=1.0` renders an
   invisible shape, and if that shape has no stroke there is no trace of it
@@ -438,6 +491,11 @@ problem with a frame index.
 - Keep topic content out of `src/`. Keep framework logic out of `projects/`.
 - Conventional Commits for messages (`feat:`, `fix:`, `docs:`); explain the
   behaviour change and how it was verified.
+- **If a file write is refused as a "partial view"** even though the whole file
+  was just read — `write_file` has done this on files `manimations new` and `cp`
+  produced as well as on hand-written ones — fall back to `patch`, or to Python
+  via `execute_code`. The guard is a false positive here; it is not telling you
+  the file changed on disk.
 
 ## 10. Adding a new topic
 
@@ -459,7 +517,7 @@ narration lands in 105–185 wpm for its declared duration.
 
 - Framework ~5.9k lines across `src/manimations/`.
 - Vertical 9:16 Shorts with narration and placed SFX, one folder per episode:
-  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-36-gping`
+  `episode-1-gdu` (pocket-tts), `episode-2-usbipd` … `episode-56-broot`
   (all voxcpm-gguf). Every one is 1080×1920 @ 30 fps and every `final` is
   promoted; measured durations:
 
@@ -490,6 +548,22 @@ narration lands in 105–185 wpm for its declared duration.
 | 34 | `episode-34-gum` | 28.7 |
 | 35 | `episode-35-doggo` | 27.1 |
 | 36 | `episode-36-gping` | 26.7 |
+| 37 | `episode-37-bandwhich` | 28.3 |
+| 38 | `episode-38-just` | 28.6 |
+| 39 | `episode-39-watchexec` | 25.3 |
+| 40 | `episode-40-k9s` | 28.3 |
+| 41 | `episode-41-navi` | 26.8 |
+| 42 | `episode-42-age` | 27.0 |
+| 43 | `episode-43-helix` | 35.0 |
+| 44 | `episode-44-jless` | 36.0 |
+| 45 | `episode-45-dekit` | 33.2 |
+| 46 | `episode-46-rclone` | 27.9 |
+| 47 | `episode-47-choose` | 26.5 |
+| 48 | `episode-48-gh` | 27.7 |
+| 49 | `episode-49-dive` | 28.5 |
+| 50 | `episode-50-ctop` | 27.6 |
+| 51 | `episode-51-stern` | 27.7 |
+  | 55 | `episode-55-nnn` | 36.5 | 56 | `episode-56-broot` | 36.6 |
   | 11 | `episode-11-lazygit` | 39.3 | | | |
 
 - **Every episode carries the same four-part scaffolding** beyond the framework:
@@ -571,10 +645,27 @@ works with no extra lookup.
 | 34 | `episode-34-gum` | "Follow for Episode 35" |
 | 35 | `episode-35-doggo` | "Follow for Episode 36" |
 | 36 | `episode-36-gping` | "Follow for Episode 37" |
+| 37 | `episode-37-bandwhich` | "Follow for Episode 38" |
+| 38 | `episode-38-just` | "Follow for Episode 39" |
+| 39 | `episode-39-watchexec` | "Follow for Episode 40" |
+| 40 | `episode-40-k9s` | "Follow for Episode 41" |
+| 41 | `episode-41-navi` | "Follow for Episode 42" |
+| 42 | `episode-42-age` | "Follow for Episode 43" |
+| 43 | `episode-43-helix` | "Follow for Episode 44" |
+| 44 | `episode-44-jless` | "Follow for Episode 45" |
+| 45 | `episode-45-dekit` | "Follow for Episode 46" |
+| 46 | `episode-46-rclone` | "Follow for Episode 47" |
+| 47 | `episode-47-choose` | "Follow for Episode 48" |
+| 48 | `episode-48-gh` | "Follow for Episode 49" |
+| 49 | `episode-49-dive` | "Follow for Episode 50" |
+| 50 | `episode-50-ctop` | "Follow for Episode 51" |
+| 51 | `episode-51-stern` | "Follow for Episode 52" |
+| 55 | `episode-55-nnn` | "Follow for Episode 56" |
+| 56 | `episode-56-broot` | "Follow for Episode 57" |
 
 Adding episode N+1: name the folder `episode-<N+1>-<slug>`, set the same value as
-its `slug:`, and have its CTA say `N+2`. **Episode 37 does not exist yet** —
-`episode-36-gping` is the current head of the chain.
+its `slug:`, and have its CTA say `N+2`. **Episode 52 does not exist yet** —
+`episode-51-stern` is the current head of the chain.
 
 Two known inconsistencies, left as-is because the rendered videos are already
 published — fix them only when re-rendering the affected episode:
@@ -582,7 +673,7 @@ published — fix them only when re-rendering the affected episode:
 - **`episode-1-gdu` never numbered itself.** Its CTA is "Follow for more /
   terminal black magic". That is why the chain *looks* like it starts at 2.
 - **The series has two names in the files.** "Developer & Power-User Black Magic"
-  dominates — 34 of the 36 episodes name it, including every episode from
+  dominates — 49 of the 51 episodes name it, including every episode from
   `ollama` (Ep 5) onward except the two below. "Power-User & Developer
   Shortcuts" survives in `sortdl` (Ep 3) and `cloudflared` (Ep 4) only, and
   `episode-1-gdu`'s brief names no series at all. Pick one when the series is
@@ -605,6 +696,16 @@ Be honest about these rather than working around them:
   review (`pipeline/qa.py`) stays as it was: safe-area bounds, edge contact, blank
   frames, and resolution/fps/duration from the file on disk. One defect survives
   as-is in a published cut: `episode-14-httpie` frame 26 touches the left edge.
+- **The two whoosh SFX files are used by episodes 31-51 but appear in no
+  `credits.json` anywhere in the repo** — only the two key clicks are
+  credited, in every episode. Noted in the READMEs of 33-37 and 49. A trace
+  was attempted on 2026-10-22 (episode 49): a duration-filtered Freesound search
+  found one exact-duration candidate for the 2.496 s file (id `853649`,
+  "Slingshot sound", CC0) and several near-misses for the 0.840 s one, but a
+  native-resolution spectral comparison did **not** confirm any of them (best
+  per-frame cosine 0.63 against an unrelated whoosh; the exact-duration
+  candidate scored -0.15). **Still open** — trace it before any of those
+  episodes is re-rendered.
 - The **music bed** (`--music`) is implemented and now exercised against real
   audio in the end-to-end tests, including the music-only case (no narration),
   which a bug had been silently dropping. **The delivered Shorts never use it** —
@@ -615,6 +716,52 @@ Be honest about these rather than working around them:
   credentials are present** (`.env` sets `FREESOUND_API_KEY`, `JAMENDO_CLIENT_ID`
   and `JAMENDO_SECRET`). The SFX that shipped came in through the asset client
   for the CC0 sounds (see each episode's `credits.json`).
+- **A vendor's own two pages can disagree, and the dead link settles it.**
+  `episode-39-watchexec`'s draft said `apt install watchexec`.  watchexec's CLI
+  README still advertises "Debian/Ubuntu via apt.cli.rs", while its
+  `doc/packages.md` lists that same APT repo as **defunct** with no install
+  command — and `apt.cli.rs` now resolves to a "Dead Host" page, so
+  packages.md is right and the README is stale.  When two vendor pages
+  conflict, fetch the thing they disagree about rather than picking the page
+  you read first.
+- **An install command can exist, look correct, and still fail.**
+  `episode-48-gh`'s draft said `apt install gh`, which is real — the manual
+  ends in `sudo apt install gh -y` and the formula is current.  What the
+  draft could not know is that gh's **Linux signing key expired on 5
+  September 2026**: the vendor's releases page now says the APT and RPM
+  repos "are now signed only with the new PGP key" and that anyone who
+  installed from them "before April 8, 2026, and have not refreshed their
+  keyring, may now see package installation or update failures".  The
+  command is unchanged; the trust chain behind it moved.  **When a draft
+  gives an install command, read the vendor's install page AND its releases
+  page** — a signing-key rotation, a repository migration or a deprecation
+  note all live there, not in the command.  Also check whether the distro's
+  own archive is the same package: Ubuntu carries `gh` at 2.46.0 while the
+  official repo serves 2.102.1.
+
+- **A rename does not just change the name — it kills the install command.**
+  `episode-45-dekit`'s draft was written for `mprocs` and told viewers to run
+  `brew install mprocs`.  The project had been renamed to **dekit**: the
+  legacy README says so outright, the repository's master README is now
+  dekit's, and `formulae.brew.sh/formula/mprocs` returns **HTTP 404** while
+  searching the whole Homebrew formula index for `mprocs` returns nothing.
+  `homebrew-core/formula_renames.json` carries `"mprocs": "dekit"`, and the
+  Homebrew docs say that mapping is used "during updates and `brew migrate`"
+  — it migrates an install you already have, it does NOT install by the old
+  name.  So a rename can invalidate the install line while leaving every
+  other claim in the draft true, which is exactly what happened here: the
+  keybindings, the sidebar and the config all still checked out.  **Check
+  that the package still answers to the name in the install command** — not
+  just that the project exists — and prefer the vendor's own install page
+  over a README the vendor may have replaced.
+
+- **An omission can matter as much as an error — surface it on screen.**
+  `episode-41-navi`'s draft made no false claim, but navi's README opens with
+  "**Maintenance mode.** navi still gets bug fixes, but no new features are
+  planned."  A Short that tells people to install a tool should say so, so the
+  outro carries it.  Check for a project-status note (maintenance mode,
+  archived, deprecated, unmaintained) on every episode, not just the ones
+  whose whole hook is a project dying — that was `episode-31-fastfetch`.
 - pocket-tts needs network access **once** to fetch model weights; offline runs
   will report narration as unavailable rather than failing.
 - The **PyTorch VoxCPM backend** (`--engine voxcpm`) is covered by tests against a
@@ -711,9 +858,21 @@ evidence when the difference dwarfs that (episode 29's 0.198 vs 0.373 s/word,
 episode 32's 3.04 vs 5.44 s), and a line you are about to "fix" by a hair is
 worth re-measuring first.
 
-- *Rushing* (three earlier episodes): a scene lands at **275–300 wpm** while its
+**But the *duration* is reproducible per text, and that is what a probe
+measures.** Measured on `episode-49-dive` (2026-10-22, `--gpu-layers 4`):
+`04_value`'s first draft measured **3.68 s three times in one process** and
+3.68 s again in a second, separate process. So a probe difference between two
+*wordings* is signal, not noise — the ~0.6 s floor still applies, but only the
+audio **bytes** vary between runs. The 4.64 s vs 5.44 s gap above is a
+*context* difference (probe script vs pipeline run), not run-to-run jitter.
+
+- *Rushing* (four episodes now): a scene lands at **275–300 wpm** while its
   siblings sit at 170–200. Triggers found so far: the contrastive "X, not Y, so
-  Z" construction, and a colon mid-line.
+  Z" construction, a colon mid-line, and a line that crams **three clauses
+  together with commas** — `episode-49-dive`'s first 04 ran at **277 wpm**
+  ("Changed files are colour coded, it estimates the space you wasted, and it
+  can fail your build."). Shortening the middle clause ("it estimates wasted
+  space") took it to 176 wpm at one word fewer.
 - *Dwelling*: the opposite failure — the engine slows on a phrase, so a ~9 s
   scene renders much longer. Three triggers now on record, all found by probing
   variants of the same line in one process:
@@ -722,6 +881,58 @@ worth re-measuring first.
   - **repeated words** — "different" three times in one sentence
     (`episode-21-btop`, 135 wpm). Rewriting to one "different" gave 212 wpm.
   - **punctuation that invites a pause** — a mid-line colon.
+  - **a word junction, not a word** — `episode-39-watchexec`'s outro dwelled
+    at **85.2 wpm** on "from brew. Apache licensed.".  Three variants
+    containing that exact junction ran 7.04 / 8.00 / 8.64 s, while dropping
+    the licence clause gave 3.36 s and inserting "It is" before "Apache"
+    gave 5.12 s.  So the trigger was the two-word seam, not the licence
+    word — probe the phrase, not the vocabulary.
+
+**A probe that measures the wrong thing cannot catch a wrong key.**
+  `episode-44-jless`'s draft said "pressing `c` recursively collapses all
+  nodes".  jless's user guide says `c` is the **shallow** collapse and `C`
+  is the deep one, and both act on the focused node *and its siblings*, not
+  on "all nodes" — so the claim was wrong twice in one sentence.  Nothing in
+  a pace probe, a pixel check or a vision pass could have found it: the key
+  was legible, well-laid-out and correctly pronounced.  A keybinding is only
+  settled by the page that specifies it (0.3), and this is the second time a
+  draft got one wrong after `episode-41-navi`'s Ctrl+G.
+
+**Episode length is a brief decision, not a drift — and it moves the pace
+  targets with it.**  Episodes 43-45 were each asked for at 32 seconds or
+  more and landed at 33-36s; episode 46 was asked to go "back to usual" and
+  landed at 27.9s, inside the 25.3-28.7s band episodes 31-42 occupied.  The
+  same script written for one target overshoots the other, so check the
+  brief before writing lines: the longer band needs ~17-20 word lines and
+  staggered multi-step scene builds, the usual band needs ~11-15 word lines
+  and three plays per scene.  Getting it wrong is cheap to see and expensive
+  to fix — episode 46's first pass projected 29.56s and needed a second probe
+  round purely to come back down.
+
+**A pace probe cannot hear a phoneme, so a pronunciation fix is a guess.**
+  Every spelling probe in this series measures *duration*; duration can show
+  that the engine dwelled, swallowed or rushed a token, but it cannot show
+  *which sounds it produced*.  `episode-42-age` is the case that exposes it:
+  the README says the name is pronounced with a **hard g** ("like GIF"),
+  while "age" is an ordinary English word with a soft g, and the four spellings
+  measured 4.64-5.92s — a spread that says nothing about the consonant.  The
+  narration therefore uses the author's own transliteration ("aghe", the word
+  his README links to a translate page) and the name stays whole as `age` on
+  screen.  Say so plainly in the episode README rather than implying the
+  pronunciation was verified: nothing in this loop can listen to the audio.
+
+**A faster line is not automatically a better line — it shrinks the animation
+budget.**  Spelling a name for the ear almost always speeds the line up, but
+`--fit-narration` sets `duration = narration + 0.6s`, so a shorter narration
+gives the scene LESS room to run its animation.  On `episode-40-k9s` the two
+goals pulled opposite ways: the bare name `k9s` dwelled at 6.08s (a
+comfortable 2.18s of animation margin, but 98.8 scene wpm — under the
+validator's 105 floor), while the spelled `kay-nines` ran 4.64s (126 scene
+wpm, but only 0.74s of margin).  Neither was good on both counts.  The fix is
+a **longer** line, not a slower one: adding words buys seconds without
+lowering the word count, so "…dashboard that watches your whole cluster"
+measured 5.60s for 150.0 wpm and a 1.70s margin.  When a spelled name comes
+back fast, check the animation budget before accepting it.
 
 Measure per-scene wpm from the rendered clips before trusting a render, and
 synthesise the variants in one probe script (one process, several lines) rather
@@ -810,3 +1021,50 @@ declared duration when you fix the line.
 Tuning knobs: `--gpu-layers N`, or the env vars `MANIMATIONS_VOXCPM_BIN`,
 `MANIMATIONS_VOXCPM_BASE_LM`, `MANIMATIONS_VOXCPM_ACOUSTIC`,
 `MANIMATIONS_VOXCPM_GPU_LAYERS` (for installs outside the repo).
+
+---
+
+## 14. Working a brief end to end
+
+When the user pastes a **Video Blueprint**, the deliverable is the finished
+Short, not a plan. The whole pipeline runs without a check-in:
+
+1. **Verify the draft first** (§0.3). The Blueprint is a DRAFT, not a spec —
+   the timestamped pacing is usually fiction and the factual claims routinely do
+   not survive vendor verification. Read the vendor's own pages, replace or drop
+   every unsupported claim, and report the corrections *before* writing code.
+2. **Scaffold** (`manimations new <slug> --topic … --dir projects/<slug>`), then
+   write `project.yaml` (brief + claims audit) and `scenes.py`, and `validate`.
+3. **Probe the pace** (§13) and fix rushing/dwelling lines *before* the first
+   render — a bad line is cheap to see in a probe and expensive to fix in a render.
+4. **Preview** (480p) and read the contact sheets with the vision model (§7/§12)
+   — pixel QA alone cannot see a legibility defect.
+5. **Final render**: `manimations final <slug> --voiceover --engine voxcpm-gguf
+   --gpu-layers 4 --fit-narration --subtitles`, then `mix_sfx.py` and
+   `verify_sfx.py`, then mux to the reel.
+6. **Write the audit**: `README.md` (claims table, measured pace, re-render
+   command) and `assets/sfx/credits.json` / `credits.txt`.
+7. **QA the reel** (`manimations qa`) and report the real numbers.
+
+Two working rules, both asked for explicitly:
+
+- **Do not stop between steps to ask.** Once the brief is accepted, validate,
+  probe, preview, render and report — the user does not want "is it done?"; the
+  final report carries the real numbers. §0.2's "ask before a long or expensive
+  run" governs work *outside* what was asked for, not the pipeline the brief
+  itself requires.
+- **Poll the render, and work in the gap.** A render is a background process
+  that takes minutes. Poll it (or use `notify=True`) and keep going — the
+  credits, the README and the AGENTS.md updates are written *while* the render
+  runs, not after it.
+
+**Episode numbering.** The Blueprint's CTA names the *next* episode, so a CTA
+saying "Episode N+1" means this video is Episode N. Check §11.1 before writing
+any CTA.
+
+**Two briefs can claim the same episode number, and the draft is always wrong in
+that case.** The `ctop` brief and the `stern` brief both said *"Follow for
+Episode 51"*. Only one can be Episode 50, and `episode-50-ctop` was already built
+and published, so `stern` became Episode 51 with a CTA of 52 — the draft's
+number was simply stale. **When two briefs collide, the earlier one wins and the
+later one moves up**; do not renumber a published episode to match a draft.
