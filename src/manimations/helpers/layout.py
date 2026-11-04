@@ -49,18 +49,68 @@ def safe_height(margin: float | None = None) -> float:
     return config.frame_height - 2 * (margin if margin is not None else margin_y())
 
 
-def is_inside_safe_area(mob: Mobject, tol: float = 0.02) -> bool:
-    """True when ``mob`` lies fully within the safe area.
+#: Below this opacity a layer counts as *invisible* for bounds purposes.
+#: Neumorphic shadow slabs (``surfaces.soft_shadow``) are 5-13% opaque with
+#: no stroke; counting them would flag every soft card that sits on the
+#: safe-area edge, while real content (text, plates, strokes) is always at
+#: or above 0.15.
+VISIBLE_OPACITY = 0.15
 
-    Uses plain coordinate comparison (``Rectangle.contains`` is not a point test
-    in Manim CE).
+
+def _is_visible(mob: Mobject) -> bool:
+    """False for near-transparent shadow layers and empty placeholders."""
+    fill = float(getattr(mob, "fill_opacity", 0) or 0)
+    stroke_w = float(getattr(mob, "stroke_width", 0) or 0)
+    stroke_op = float(getattr(mob, "stroke_opacity", 1) or 0)
+    return fill >= VISIBLE_OPACITY or (stroke_w > 0 and stroke_op >= VISIBLE_OPACITY)
+
+
+def effective_box(
+    mob: Mobject,
+) -> tuple[float, float, float, float] | None:
+    """Union bounds of ``mob``'s visible parts: (left, right, bottom, top).
+
+    Walks into submobjects so shadow layers (or any deliberately faint
+    decoration) drop out of the box.  Returns ``None`` when nothing visible
+    remains — an invisible mobject cannot violate the safe area.
     """
+    if mob.submobjects:
+        boxes = [b for b in (effective_box(c) for c in mob.submobjects) if b]
+        if boxes:
+            return (
+                min(b[0] for b in boxes),
+                max(b[1] for b in boxes),
+                min(b[2] for b in boxes),
+                max(b[3] for b in boxes),
+            )
+        return None  # children exist but all are invisible
+    if not _is_visible(mob):
+        return None
+    return (
+        mob.get_left()[0],
+        mob.get_right()[0],
+        mob.get_bottom()[1],
+        mob.get_top()[1],
+    )
+
+
+def is_inside_safe_area(mob: Mobject, tol: float = 0.02) -> bool:
+    """True when ``mob``'s visible parts lie within the safe area.
+
+    Uses plain coordinate comparison (``Rectangle.contains`` is not a point
+    test in Manim CE) against :func:`effective_box`, so transparent shadow
+    layers never decide the verdict.
+    """
+    box = effective_box(mob)
+    if box is None:
+        return True
+    left, right, bottom, top = box
     area = safe_area()
     return bool(
-        mob.get_left()[0] >= area.get_left()[0] - tol
-        and mob.get_right()[0] <= area.get_right()[0] + tol
-        and mob.get_bottom()[1] >= area.get_bottom()[1] - tol
-        and mob.get_top()[1] <= area.get_top()[1] + tol
+        left >= area.get_left()[0] - tol
+        and right <= area.get_right()[0] + tol
+        and bottom >= area.get_bottom()[1] - tol
+        and top <= area.get_top()[1] + tol
     )
 
 
@@ -72,12 +122,21 @@ def offending_mobjects(
 
 
 def overlaps(a: Mobject, b: Mobject, tol: float = 0.02) -> bool:
-    """Bounding-box overlap test between two mobjects."""
+    """Visible-bbox overlap test between two mobjects.
+
+    Uses :func:`effective_box` so two neumorphic cards whose shadow layers
+    merely graze each other are not reported as colliding content.
+    """
+    ba, bb = effective_box(a), effective_box(b)
+    if not ba or not bb:
+        return False
+    left_a, right_a, bottom_a, top_a = ba
+    left_b, right_b, bottom_b, top_b = bb
     return bool(
-        a.get_right()[0] - tol > b.get_left()[0]
-        and b.get_right()[0] - tol > a.get_left()[0]
-        and a.get_top()[1] - tol > b.get_bottom()[1]
-        and b.get_top()[1] - tol > a.get_bottom()[1]
+        right_a - tol > left_b
+        and right_b - tol > left_a
+        and top_a - tol > bottom_b
+        and top_b - tol > bottom_a
     )
 
 

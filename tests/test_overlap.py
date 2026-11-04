@@ -13,6 +13,8 @@ import os
 import textwrap
 from pathlib import Path
 
+from manim import RIGHT
+
 import pytest
 
 from manimations.config import ProjectConfig
@@ -126,3 +128,53 @@ def test_renderer_asks_the_scene_for_a_report(project_dir, monkeypatch):
     assert seen["env"] is not None
     assert OVERLAP_ENV in seen["env"]
     assert seen["env"][OVERLAP_ENV].endswith("01_intro.overlap.json")
+
+
+# --------------------------------------------------------------------------
+# Neumorphic shadow layers vs safe-area bounds / collision pairs
+# --------------------------------------------------------------------------
+def test_shadow_layers_do_not_trip_the_safe_area_check():
+    """A soft card resting ON the safe-area edge must pass.
+
+    Regression: `surfaces.soft_shadow` copies sit 0.09 units down-right of
+    the plate; counting their (5-13% opaque) bounds flagged every neumorphic
+    card on the boundary as "outside the safe area".
+    """
+    from manim import Text
+
+    from manimations.components import surfaces
+    from manimations.helpers import layout
+    from manimations.theme import set_style
+
+    set_style("neumorphic")
+    try:
+        card = surfaces.panel(2.0, 1.0)
+        assert card.width > 2.0, "shadows must actually extend the bbox"
+        card.to_edge(RIGHT, buff=layout.margin_x())  # plate flush to the edge
+        assert layout.is_inside_safe_area(card)
+        assert layout.offending_mobjects([card]) == []
+
+        # ...but genuinely out-of-bounds content still flags.
+        stray = Text("stray").to_edge(RIGHT, buff=-0.5)
+        assert not layout.is_inside_safe_area(stray)
+        assert layout.offending_mobjects([stray]) != []
+    finally:
+        set_style("classic")
+
+
+def test_shadow_grazing_is_not_a_collision():
+    """Two cards whose shadow layers only graze each other are not colliding."""
+    from manimations.components import surfaces
+    from manimations.helpers import layout
+    from manimations.theme import set_style
+
+    set_style("neumorphic")
+    try:
+        a = surfaces.panel(1.0, 1.0)
+        b = surfaces.panel(1.0, 1.0)
+        b.next_to(a, RIGHT, buff=0.05)  # plate gap 0.05 < shadow reach 0.09
+        assert not layout.overlaps(a, b)
+        b.next_to(a, RIGHT, buff=-0.2)  # real overlap
+        assert layout.overlaps(a, b)
+    finally:
+        set_style("classic")

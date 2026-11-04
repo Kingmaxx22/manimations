@@ -62,6 +62,10 @@ class SceneSpec:
     #: misspelled name.  Set this to the real spelling when they differ; empty
     #: means the subtitles use ``narration`` verbatim.
     subtitle_text: str = ""
+    #: Which avatar pose this scene holds as its base (empty -> the
+    #: project's avatar default).  Only meaningful when the project has an
+    #: ``avatar:`` block; e.g. ``pointing`` for a scene that lists claims.
+    avatar_state: str = ""
 
     @property
     def subtitle_source(self) -> str:
@@ -136,6 +140,7 @@ class SceneSpec:
             visuals=list(data.get("visuals", []) or []),
             notes=str(data.get("notes", "")),
             subtitle_text=str(data.get("subtitle_text", "") or ""),
+            avatar_state=str(data.get("avatar_state", "") or ""),
         )
 
 
@@ -158,6 +163,13 @@ class ProjectConfig:
     description: str = ""
     #: "landscape" (1920x1080) or "vertical" (1080x1920).
     orientation: str = "landscape"
+    #: Visual style: "classic" (the original look, the default for existing
+    #: episodes) or "neumorphic" (modern soft-UI dark).  Only NEW videos
+    #: should change this — delivered episodes stay on classic (AGENTS.md 11.2).
+    theme: str = "classic"
+    #: Optional PNGtuber avatar config: {"states": {name: path, ...},
+    #: "default": name}.  Paths are resolved by the render pipeline.
+    avatar: dict[str, Any] | None = None
 
     @property
     def orient(self) -> "Orientation":
@@ -227,6 +239,23 @@ class ProjectConfig:
                 f"narration_engine {self.narration_engine!r} must be one of "
                 f"{TTS_ENGINES}"
             )
+        from .theme import STYLES
+
+        if self.theme not in STYLES:
+            problems.append(f"theme {self.theme!r} must be one of {STYLES}")
+        if self.avatar is not None:
+            states = self.avatar.get("states")
+            if not isinstance(states, dict) or not states:
+                problems.append("avatar must be a mapping with a non-empty 'states'")
+            elif not all(isinstance(k, str) and isinstance(v, str)
+                         for k, v in states.items()):
+                problems.append("avatar states must be name: path strings")
+            else:
+                default = str(self.avatar.get("default", ""))
+                if default and default not in states:
+                    problems.append(
+                        f"avatar default {default!r} is not one of {sorted(states)}"
+                    )
         ids = [s.id for s in self.scenes]
         dupes = {i for i in ids if ids.count(i) > 1}
         if dupes:
@@ -257,6 +286,9 @@ class ProjectConfig:
             raise ConfigError("'scenes' must be a list")
 
         slug = str(data.get("slug", root.name))
+        avatar_raw = data.get("avatar")
+        if avatar_raw is not None and not isinstance(avatar_raw, dict):
+            raise ConfigError("'avatar' must be a mapping (states/default)")
         return cls(
             title=str(data.get("title", slug)),
             slug=slug,
@@ -274,4 +306,6 @@ class ProjectConfig:
             author=str(data.get("author", "")),
             description=str(data.get("description", "")),
             orientation=str(data.get("orientation", "landscape")).strip().lower(),
+            theme=str(data.get("theme", "classic")).strip().lower(),
+            avatar=avatar_raw,
         )

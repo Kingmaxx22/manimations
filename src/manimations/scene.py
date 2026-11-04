@@ -29,12 +29,18 @@ from manim import (
 )
 
 from .components import typography
+from .components.avatar import AvatarRig, load_config as _load_avatar_config
 from .helpers import layout
 from .theme import THEME, Theme, apply_theme
 
 #: Environment variable the render pipeline sets so a scene knows its declared
 #: duration.  Keeping this out-of-band means scene files need no project import.
 SPEC_ENV = "MANIMATIONS_SCENE_SPEC"
+
+#: Environment variable carrying the avatar payload (sprite paths + states)
+#: when the project opted in with an ``avatar:`` block.  Unset -> no avatar,
+#: which is every delivered episode.
+AVATAR_ENV = "MANIMATIONS_AVATAR"
 
 #: Environment variable naming a file the scene should write its overlap report
 #: to.  Pixel QA cannot detect two mobjects drawn on top of each other — they sit
@@ -119,6 +125,48 @@ class ExplainerScene(Scene):
         #: Runtime bookkeeping for narration sync.
         self._elapsed: float = 0.0
         self._spec = self.spec or _spec_from_env()
+        #: Optional PNGtuber rig (bottom-right overlay, opt-in per project).
+        self._avatar: AvatarRig | None = self._build_avatar()
+
+    def _build_avatar(self) -> AvatarRig | None:
+        """Load the avatar rig when the pipeline asked for one.
+
+        Never raises: a bad payload or missing sprite disables the rig with a
+        warning, exactly like the overlap sidecar — diagnostics must not fail
+        a render.  The rig is added in ``__init__`` so it is present in the
+        scene's first frame, and is re-brought to the front on every tick so
+        it reads as an overlay above diagram content.
+        """
+        cfg = _load_avatar_config(os.environ.get(AVATAR_ENV))
+        if cfg is None:
+            return None
+        try:
+            rig = AvatarRig(
+                states={str(k): str(v) for k, v in cfg["states"].items()},
+                default=str(cfg.get("default", "talking")),
+                scene_state=str(cfg.get("state", "")),
+            )
+        except Exception as exc:
+            print(f"warning: avatar disabled ({exc})")
+            return None
+        rig.place()
+        self.add(rig)
+
+        scene = self
+
+        def _front(_updated, dt, _rig=rig, _scene=scene) -> None:
+            """Time-based updater: Manim calls ``updater(mobject, dt)``.
+
+            Re-fronting uses identity (``is not``), not ``in``: membership
+            uses ``__eq__``, which is unreliable across mixed mobject types.
+            """
+            if not _scene.mobjects or _scene.mobjects[-1] is not _rig:
+                _scene.bring_to_front(_rig)
+            _rig.tick(dt)
+
+        rig.updaters.clear()
+        rig.add_updater(_front)
+        return rig
 
     @property
     def target_duration(self) -> float:
@@ -155,8 +203,13 @@ class ExplainerScene(Scene):
         return mobjects[0] if len(mobjects) == 1 else VGroup(*mobjects)
 
     def content_mobjects(self) -> list[Mobject]:
-        """Everything that must fit inside the safe area."""
-        extra = [m for m in (self._header, self._footer) if m is not None]
+        """Everything that must fit inside the safe area.
+
+        Header, footer and avatar are chrome: bounds-checked but excluded
+        from collision pairs (an avatar card is not diagram content).
+        """
+        extra = [m for m in (self._header, self._footer, self._avatar)
+                 if m is not None]
         return self._content + extra
 
     def qa_report(self) -> dict:

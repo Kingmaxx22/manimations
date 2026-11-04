@@ -69,3 +69,84 @@ def test_missing_project_yaml(tmp_path):
 def test_scene_missing_required_key(tmp_path):
     with pytest.raises(ConfigError):
         SceneSpec.from_dict({"narration": "no id or class"})
+
+
+# --------------------------------------------------------------------------
+# theme: / avatar: / avatar_state (new-video styling, opt-in per project)
+# --------------------------------------------------------------------------
+def test_project_theme_defaults_to_classic(project_dir):
+    """Existing episodes carry no `theme:` key and must stay on classic."""
+    proj = ProjectConfig.load(project_dir)
+    assert proj.theme == "classic"
+
+
+def test_project_rejects_unknown_theme(project_dir):
+    path = project_dir / "project.yaml"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "slug: demo", "slug: demo\ntheme: neon"), encoding="utf-8")
+    proj = ProjectConfig.load(project_dir)
+    problems = proj.validate()
+    assert any("theme" in p for p in problems)
+
+
+def test_project_loads_theme_and_avatar(project_dir):
+    path = project_dir / "project.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "slug: demo",
+            "slug: demo\n"
+            "theme: neumorphic\n"
+            "avatar:\n"
+            "  default: talking\n"
+            "  states:\n"
+            "    talking: pngtuber/avatar_talking.png\n"
+            "    idle: pngtuber/avatar_idle.png",
+        ),
+        encoding="utf-8",
+    )
+    proj = ProjectConfig.load(project_dir)
+    assert proj.theme == "neumorphic"
+    assert proj.avatar is not None
+    assert proj.avatar["default"] == "talking"
+    assert proj.validate() == []
+
+
+def test_avatar_default_must_name_a_state(project_dir):
+    path = project_dir / "project.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "slug: demo",
+            "slug: demo\n"
+            "avatar:\n"
+            "  default: wavy\n"
+            "  states:\n"
+            "    talking: x.png",
+        ),
+        encoding="utf-8",
+    )
+    proj = ProjectConfig.load(project_dir)
+    problems = proj.validate()
+    assert any("avatar default" in p for p in problems)
+
+
+def test_avatar_must_be_a_mapping(project_dir):
+    path = project_dir / "project.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "slug: demo", "slug: demo\navatar: yes"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError):
+        ProjectConfig.load(project_dir)
+
+
+def test_scene_avatar_state_parses(project_dir):
+    path = project_dir / "project.yaml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "id: 01_intro", "id: 01_intro\n    avatar_state: pointing"),
+        encoding="utf-8",
+    )
+    proj = ProjectConfig.load(project_dir)
+    assert proj.scenes[0].avatar_state == "pointing"
+    assert proj.scenes[1].avatar_state == ""

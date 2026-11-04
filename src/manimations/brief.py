@@ -137,12 +137,26 @@ _YAML_HEADER = """\
 title: "{title}"
 slug: {slug}
 description: "{description}"
+theme: neumorphic            # neumorphic (modern soft dark) or classic (pre-2026 look)
+                             # existing episodes stay on classic — new videos only
 orientation: landscape          # landscape (1920x1080) or vertical (1080x1920)
 narration_voice: alba          # pocket-tts voice name, or a path to a wav
 narration_engine: pocket-tts   # pocket-tts (CPU, default) or voxcpm (GPU)
 # narration_model: openbmb/VoxCPM2   # optional checkpoint override
 subtitle_lang: en
 # music: assets/music_bed.mp3  # optional background bed (looped, mixed low)
+
+# PNGtuber overlay (pngtuber/README.md). Per-scene pose override: add
+# `avatar_state: pointing` (or idle/gesture/excited/blink) to a scene entry.
+avatar:
+  default: talking
+  states:
+    idle: pngtuber/avatar_idle.png
+    talking: pngtuber/avatar_talking.png
+    blink: pngtuber/avatar_blink.png
+    gesture: pngtuber/avatar_gesture.png
+    pointing: pngtuber/avatar_pointing.png
+    excited: pngtuber/avatar_excited.png
 
 scenes:
 """

@@ -22,6 +22,16 @@ from manim import ManimColor, Text, config
 #: "vertical").  Set by the render pipeline so scene files need no project import.
 ORIENTATION_ENV = "MANIMATIONS_ORIENTATION"
 
+#: Environment variable carrying the active style ("classic" or "neumorphic").
+#: Set by the render pipeline from the project's ``theme:`` key.  Projects
+#: without the key default to "classic", which is byte-for-byte the original
+#: look — styling changes are for NEW videos, never a retroactive re-skin of
+#: delivered episodes (see AGENTS.md 11.2).
+THEME_ENV = "MANIMATIONS_THEME"
+
+#: Style names accepted in ``theme:``.
+STYLES = ("classic", "neumorphic")
+
 # --------------------------------------------------------------------------
 # Palette
 # --------------------------------------------------------------------------
@@ -56,6 +66,32 @@ class Palette:
     rose: str = "#FB7185"
     blue: str = "#60A5FA"
     slate: str = "#94A3B8"
+
+
+def _neu(**overrides) -> Palette:
+    """Build the neumorphic palette: a soft dark slate base where the
+    surface sits close to the background and depth comes from shadows,
+    not from contrasty borders.  Accents are inherited from classic so a
+    topic's accent language survives the style switch."""
+    base = dict(
+        bg="#202432",           # lifted vs classic so soft shadows read
+        bg_deep="#171A26",
+        surface="#252A3A",      # plate ~ bg: the neumorphic recipe
+        surface_alt="#2A3044",
+        surface_raised="#313752",
+        border="#38405C",        # faint: the shadow defines the edge
+        border_soft="#2E3550",
+        grid="#242941",
+        text="#ECEFF7",
+        text_secondary="#A3AEC6",
+        text_muted="#6B7793",
+    )
+    base.update(overrides)
+    return Palette(**base)
+
+
+#: The modern soft-UI palette (opt-in per project via ``theme: neumorphic``).
+NEUMORPHIC_PALETTE = _neu()
 
 
 # --------------------------------------------------------------------------
@@ -161,10 +197,20 @@ class Theme:
     sizes: Sizes = field(default_factory=Sizes)
     spacing: Spacing = field(default_factory=Spacing)
     motion: Motion = field(default_factory=Motion)
+    #: Active style name; bound by :func:`set_style` ("classic" by default).
+    style: str = "classic"
 
-    # --- convenience colour accessors (ManimColor, cached per instance) ---
-    def __post_init__(self) -> None:
-        p = self.palette
+    # --- convenience colour accessors (ManimColor, rebindable per style) ---
+    def _activate(self, palette: Palette, style: str) -> None:
+        """Rebind palette + derived ManimColors to a new style.
+
+        ``object.__setattr__`` bypasses the frozen dataclass on purpose: the
+        render pipeline selects the style from the environment while every
+        component holds a reference to the same THEME singleton.
+        """
+        object.__setattr__(self, "palette", palette)
+        object.__setattr__(self, "style", style)
+        p = palette
         object.__setattr__(self, "bg", ManimColor(p.bg))
         object.__setattr__(self, "bg_deep", ManimColor(p.bg_deep))
         object.__setattr__(self, "surface", ManimColor(p.surface))
@@ -183,6 +229,14 @@ class Theme:
         object.__setattr__(self, "rose", ManimColor(p.rose))
         object.__setattr__(self, "blue", ManimColor(p.blue))
         object.__setattr__(self, "slate", ManimColor(p.slate))
+
+    def __post_init__(self) -> None:
+        self._activate(self.palette, self.style)
+
+    # --- style helpers ---------------------------------------------------
+    @property
+    def is_neumorphic(self) -> bool:
+        return self.style == "neumorphic"
 
     # --- semantic aliases used across components ---
     @property
@@ -203,6 +257,19 @@ class Theme:
 
 
 THEME = Theme()
+
+
+def set_style(name: str) -> Theme:
+    """Switch the global theme between styles; returns the THEME singleton.
+
+    Unknown names fall back to "classic" so a typo can never re-skin a
+    delivered episode.
+    """
+    if name == "neumorphic":
+        THEME._activate(NEUMORPHIC_PALETTE, "neumorphic")
+    else:
+        THEME._activate(Palette(), "classic")
+    return THEME
 
 
 # --------------------------------------------------------------------------
@@ -284,6 +351,9 @@ def apply_theme(background: ManimColor | None = None,
     frame aspect ratio are forced here.
     """
     orient = orientation or _active_orientation()
+    # Select the style BEFORE reading THEME.bg: the camera picks up the
+    # background colour at construction time.
+    set_style(os.environ.get(THEME_ENV, "classic").strip().lower())
     config.background_color = background or THEME.bg
     # Frame height stays 8 units in both orientations; the width follows the
     # aspect ratio.  Vertical is therefore simply a narrower frame.

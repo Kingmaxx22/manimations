@@ -10,10 +10,12 @@ from __future__ import annotations
 from typing import Iterable, Sequence
 
 from manim import (
+    BLACK,
     DOWN,
     LEFT,
     RIGHT,
     UP,
+    WHITE,
     Arrow,
     DashedLine,
     Line,
@@ -32,12 +34,50 @@ from . import typography
 # --------------------------------------------------------------------------
 # surfaces
 # --------------------------------------------------------------------------
+#: Stacked low-opacity slabs that approximate a soft neumorphic drop shadow.
+#: Manim has no blur, so gradation comes from three offset copies instead of
+#: one feathered edge; at video resolution it reads as soft depth.
+_NEU_SHADOW = ((0.03, 0.13), (0.06, 0.09), (0.09, 0.055))
+_NEU_HIGHLIGHT = ((0.03, 0.05), (0.06, 0.028))
+_NEU_RADIUS = 0.22  # rounder corners are part of the modern soft-UI look
+
+
+def soft_shadow(shape: Mobject) -> list[Mobject]:
+    """Dark drop + light rim layers for ``shape`` (empty unless neumorphic).
+
+    Only meaningful for opaque plates: behind a transparent panel the dark
+    layers would read as a filled box, so callers pass ``fill_opacity``.
+    """
+    if not THEME.is_neumorphic:
+        return []
+    layers: list[Mobject] = []
+    for dx, op in _NEU_SHADOW:
+        layers.append(
+            shape.copy().set_stroke(width=0).set_fill(BLACK, opacity=op)
+            .shift(RIGHT * dx + DOWN * dx)
+        )
+    for dx, op in _NEU_HIGHLIGHT:
+        layers.append(
+            shape.copy().set_stroke(width=0).set_fill(WHITE, opacity=op)
+            .shift(LEFT * dx + UP * dx)
+        )
+    return layers
+
+
 def panel(width: float, height: float, *, accent: ManimColor | None = None,
           fill: ManimColor | None = None, stroke: ManimColor | None = None,
-          corner_radius: float = 0.16, fill_opacity: float = 1.0,
-          stroke_width: float = 1.6) -> RoundedRectangle:
-    """A flat rounded surface used as a card/panel background."""
-    return RoundedRectangle(
+          corner_radius: float | None = None, fill_opacity: float = 1.0,
+          stroke_width: float = 1.6):
+    """A rounded surface used as a card/panel background.
+
+    Classic style returns the plain ``RoundedRectangle`` (unchanged, so
+    delivered episodes re-render byte-identical).  Neumorphic style returns
+    ``VGroup(shadow layers..., plate)`` — the plate stays the visual surface;
+    everything scales and moves with the group.
+    """
+    if corner_radius is None:
+        corner_radius = _NEU_RADIUS if THEME.is_neumorphic else 0.16
+    plate = RoundedRectangle(
         width=width,
         height=height,
         corner_radius=corner_radius,
@@ -46,6 +86,8 @@ def panel(width: float, height: float, *, accent: ManimColor | None = None,
         stroke_color=stroke or accent or THEME.border,
         stroke_width=stroke_width,
     )
+    layers = soft_shadow(plate) if fill_opacity >= 1.0 else []
+    return VGroup(*layers, plate) if layers else plate
 
 
 def card(title: str | None = None, body_text: str | None = None, *, width: float = 3.6,
@@ -55,7 +97,9 @@ def card(title: str | None = None, body_text: str | None = None, *, width: float
     """A titled card.  Returns ``VGroup(surface, content)``.
 
     The surface is the first submobject so callers can target it for highlight
-    animations (``card[0].set_stroke(...)``).
+    animations (``card[0].set_stroke(...)``).  In neumorphic style the surface
+    is itself a ``VGroup`` of shadow layers + plate, where the plate is the
+    *last* submobject; stroke animations on the group still reach the plate.
     """
     pad = pad if pad is not None else THEME.spacing.card_pad
     accent = accent or THEME.accent
@@ -149,8 +193,9 @@ def callout(text: str, *, accent: ManimColor | None = None, size: int | None = N
     accent = accent or THEME.amber
     t = typography.body(text, size=size or THEME.sizes.small, color=THEME.text)
     layout.fit_width(t, max_width - 0.5)
+    radius = 0.18 if THEME.is_neumorphic else 0.12
     surface = RoundedRectangle(
-        width=t.width + 0.5, height=t.height + 0.42, corner_radius=0.12,
+        width=t.width + 0.5, height=t.height + 0.42, corner_radius=radius,
         fill_color=THEME.surface_alt, fill_opacity=1.0,
         stroke_color=accent, stroke_width=1.4,
     )
@@ -160,7 +205,9 @@ def callout(text: str, *, accent: ManimColor | None = None, size: int | None = N
     )
     edge.align_to(surface, LEFT).shift(RIGHT * 0.03)
     t.move_to(surface.get_center()).shift(RIGHT * 0.06)
-    return VGroup(surface, edge, t)
+    # Shadows are sized from the surface, so they must be built after it and
+    # placed under it in the VGroup (draw order = submobject order).
+    return VGroup(*soft_shadow(surface), surface, edge, t)
 
 
 def annotation_arrow(target: Mobject, text: str, *, direction=DOWN,

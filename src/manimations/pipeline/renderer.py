@@ -26,8 +26,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import ProjectConfig, SceneSpec
-from ..scene import OVERLAP_ENV, SPEC_ENV
-from ..theme import ORIENTATION_ENV
+from ..scene import AVATAR_ENV, OVERLAP_ENV, SPEC_ENV
+from ..theme import ORIENTATION_ENV, THEME_ENV
 from .cache import RenderCache
 from .errors import FailureKind, RenderError, RepairLog, classify
 from . import probe
@@ -142,6 +142,33 @@ def render_scene(
     # can catch it.  Written to a sidecar the QA pass reads.
     report_path = log_dir / f"{spec.id}.overlap.json"
 
+    def _avatar_payload() -> dict | None:
+        """Project avatar config with paths resolved to absolute.
+
+        The scene subprocess runs with cwd=project.root, so relative paths
+        (``pngtuber/...``) must be resolved here, in the CLI process that
+        runs from the repo root.
+        """
+        if not project.avatar:
+            return None
+        states_raw = project.avatar.get("states") or {}
+        states: dict[str, str] = {}
+        for name, path in states_raw.items():
+            p = Path(str(path)).expanduser()
+            if not p.is_absolute():
+                p = (Path.cwd() / p).resolve()
+            states[str(name)] = str(p)
+        if not states:
+            return None
+        default = str(project.avatar.get("default") or next(iter(states)))
+        if default not in states:
+            default = next(iter(states))
+        return {
+            "states": states,
+            "default": default,
+            "state": spec.avatar_state or "",
+        }
+
     last_error: RenderError | None = None
     # Tell the scene its declared duration and the frame orientation, so it can
     # pad to match the narration and lay out correctly for the aspect ratio.
@@ -151,6 +178,14 @@ def render_scene(
     )
     env[ORIENTATION_ENV] = project.orientation
     env[OVERLAP_ENV] = str(report_path)
+    # Style selection: existing projects have no `theme:` key and get
+    # "classic", so delivered episodes never re-skin on a rebuild.
+    env[THEME_ENV] = project.theme
+    avatar_payload = _avatar_payload()
+    if avatar_payload:
+        env[AVATAR_ENV] = json.dumps(avatar_payload)
+    else:
+        env.pop(AVATAR_ENV, None)  # never leak a stale payload between runs
     for attempt in range(1, max_attempts + 1):
         t0 = time.time()
         try:
